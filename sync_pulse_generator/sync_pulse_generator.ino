@@ -9,41 +9,84 @@
  * cross-correlation-based temporal alignment of multi-device
  * recordings (Vicon, EEG, etc.).
  *
- * A fixed seed ensures the pattern is reproducible across runs
- * for verification. The seed and timing ranges are configurable
- * via Serial commands at runtime.
+ * Configuration:
+ *   - Edit config.h for compile-time defaults
+ *   - Use Serial commands at runtime to adjust
+ *   - 'save' persists current settings to EEPROM
+ *   - Settings survive power cycles after saving
+ *
+ * Voltage: 5V HIGH / 0V LOW (hardware fixed by ATmega32U4)
  *
  * Board: Arduino Leonardo
  */
 
-// ---- Configuration ----
-// Output pins (accent the same signal on multiple pins for multiple BNC cables)
-const int OUTPUT_PINS[] = {2, 3, 4, 5};
+#include <EEPROM.h>
+#include "config.h"
+
+// ---- Pin setup from config ----
+const int OUTPUT_PINS[] = {OUTPUT_PIN_1, OUTPUT_PIN_2, OUTPUT_PIN_3, OUTPUT_PIN_4};
 const int NUM_PINS = sizeof(OUTPUT_PINS) / sizeof(OUTPUT_PINS[0]);
-
-// Timing ranges in milliseconds
-unsigned long minHighMs = 50;
-unsigned long maxHighMs = 500;
-unsigned long minLowMs  = 50;
-unsigned long maxLowMs  = 500;
-
-// PRNG seed (fixed for reproducibility; change via Serial)
-unsigned long prngSeed = 42;
-
-// LED pin for visual feedback
 const int LED_PIN = 13;
+
+// ---- Runtime settings (loaded from EEPROM or config.h defaults) ----
+unsigned long minHighMs;
+unsigned long maxHighMs;
+unsigned long minLowMs;
+unsigned long maxLowMs;
+unsigned long prngSeed;
 
 // ---- State ----
 bool outputState = LOW;
 unsigned long nextToggleTime = 0;
 bool running = true;
 
-// Simple LFSR-based PRNG for reproducibility (not using stdlib rand)
-// 32-bit xorshift
+// ---- EEPROM layout ----
+// Byte 0: magic, Bytes 1-20: settings
+struct EepromData {
+  uint8_t magic;
+  uint32_t minHigh;
+  uint32_t maxHigh;
+  uint32_t minLow;
+  uint32_t maxLow;
+  uint32_t seed;
+};
+
+void loadDefaults() {
+  minHighMs = DEFAULT_MIN_HIGH_MS;
+  maxHighMs = DEFAULT_MAX_HIGH_MS;
+  minLowMs  = DEFAULT_MIN_LOW_MS;
+  maxLowMs  = DEFAULT_MAX_LOW_MS;
+  prngSeed  = DEFAULT_PRNG_SEED;
+}
+
+bool loadFromEeprom() {
+  EepromData data;
+  EEPROM.get(0, data);
+  if (data.magic != EEPROM_MAGIC) return false;
+  minHighMs = data.minHigh;
+  maxHighMs = data.maxHigh;
+  minLowMs  = data.minLow;
+  maxLowMs  = data.maxLow;
+  prngSeed  = data.seed;
+  return true;
+}
+
+void saveToEeprom() {
+  EepromData data;
+  data.magic   = EEPROM_MAGIC;
+  data.minHigh = minHighMs;
+  data.maxHigh = maxHighMs;
+  data.minLow  = minLowMs;
+  data.maxLow  = maxLowMs;
+  data.seed    = prngSeed;
+  EEPROM.put(0, data);
+}
+
+// ---- PRNG (xorshift32, deterministic) ----
 uint32_t prngState;
 
 void seedPrng(uint32_t seed) {
-  prngState = seed ? seed : 1; // must not be zero
+  prngState = seed ? seed : 1;
 }
 
 uint32_t prngNext() {
@@ -53,7 +96,6 @@ uint32_t prngNext() {
   return prngState;
 }
 
-// Random duration in [minMs, maxMs]
 unsigned long randomDuration(unsigned long minMs, unsigned long maxMs) {
   if (minMs >= maxMs) return minMs;
   uint32_t range = maxMs - minMs + 1;
@@ -80,9 +122,11 @@ void printConfig() {
   Serial.println(F("=== Sync Pulse Generator Config ==="));
   Serial.print(F("  Seed:     ")); Serial.println(prngSeed);
   Serial.print(F("  High ms:  ")); Serial.print(minHighMs);
-  Serial.print(F(" - ")); Serial.println(maxHighMs);
+  Serial.print(F(" - "));          Serial.println(maxHighMs);
   Serial.print(F("  Low ms:   ")); Serial.print(minLowMs);
-  Serial.print(F(" - ")); Serial.println(maxLowMs);
+  Serial.print(F(" - "));          Serial.println(maxLowMs);
+  Serial.print(F("  Voltage:  5V HIGH / 0V LOW"));
+  Serial.println();
   Serial.print(F("  Pins:     "));
   for (int i = 0; i < NUM_PINS; i++) {
     Serial.print(OUTPUT_PINS[i]);
@@ -98,6 +142,8 @@ void printHelp() {
   Serial.println(F("  high <min> <max>  - Set high duration range (ms)"));
   Serial.println(F("  low <min> <max>   - Set low duration range (ms)"));
   Serial.println(F("  seed <value>      - Set PRNG seed & restart"));
+  Serial.println(F("  save              - Save settings to EEPROM"));
+  Serial.println(F("  reset             - Reset to config.h defaults"));
   Serial.println(F("  start             - Start output"));
   Serial.println(F("  stop              - Stop output (pins LOW)"));
   Serial.println(F("  restart           - Re-seed PRNG & restart"));
@@ -110,7 +156,6 @@ char cmdBuffer[64];
 int cmdPos = 0;
 
 void processCommand(const char* cmd) {
-  // Tokenize
   char buf[64];
   strncpy(buf, cmd, sizeof(buf) - 1);
   buf[sizeof(buf) - 1] = '\0';
@@ -156,6 +201,20 @@ void processCommand(const char* cmd) {
       Serial.println(F("Usage: seed <value>"));
     }
   }
+  else if (strcmp(token, "save") == 0) {
+    saveToEeprom();
+    Serial.println(F("Settings saved to EEPROM"));
+  }
+  else if (strcmp(token, "reset") == 0) {
+    loadDefaults();
+    seedPrng(prngSeed);
+    outputState = LOW;
+    setOutput(LOW);
+    nextToggleTime = millis();
+    running = true;
+    Serial.println(F("Reset to config.h defaults (use 'save' to persist)"));
+    printConfig();
+  }
   else if (strcmp(token, "start") == 0) {
     running = true;
     seedPrng(prngSeed);
@@ -192,7 +251,6 @@ void processCommand(const char* cmd) {
 // ---- Arduino lifecycle ----
 
 void setup() {
-  // Configure output pins
   for (int i = 0; i < NUM_PINS; i++) {
     pinMode(OUTPUT_PINS[i], OUTPUT);
     digitalWrite(OUTPUT_PINS[i], LOW);
@@ -200,26 +258,30 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 
-  // Serial for configuration (Leonardo needs a moment for USB serial)
   Serial.begin(115200);
   unsigned long waitStart = millis();
   while (!Serial && (millis() - waitStart < 3000)) {
-    ; // Wait up to 3s for serial connection
+    ;
   }
 
-  // Seed the PRNG
+  // Load settings: EEPROM if valid, otherwise config.h defaults
+  if (!loadFromEeprom()) {
+    loadDefaults();
+    Serial.println(F("Loaded defaults from config.h"));
+  } else {
+    Serial.println(F("Loaded settings from EEPROM"));
+  }
+
   seedPrng(prngSeed);
 
   Serial.println(F("Sync Pulse Generator Ready"));
   printConfig();
   printHelp();
 
-  // Start immediately
   nextToggleTime = millis();
 }
 
 void loop() {
-  // Handle serial commands
   while (Serial.available()) {
     char c = Serial.read();
     if (c == '\n' || c == '\r') {
@@ -233,13 +295,9 @@ void loop() {
     }
   }
 
-  // Square wave generation
   if (running && millis() >= nextToggleTime) {
-    // Toggle
     outputState = !outputState;
     setOutput(outputState);
-
-    // Schedule next toggle
     unsigned long duration = computeNextDuration();
     nextToggleTime = millis() + duration;
   }
