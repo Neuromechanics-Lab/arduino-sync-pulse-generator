@@ -77,6 +77,44 @@ Settings changed via serial commands are **not** saved automatically. Use `save`
 
 The generator uses a deterministic xorshift32 PRNG. The same seed always produces the same sequence, so you can verify alignment across sessions or regenerate the expected pattern in analysis software.
 
+## Alignment Utilities
+
+Post-processing tools to cross-correlate the sync channel across recordings and compute temporal offsets. Located in `sync_pulse_generator/utils/`.
+
+### Languages
+
+| Language | Location | Dependencies |
+|----------|----------|--------------|
+| Python   | `utils/python/sync_align.py` | numpy, scipy, pandas |
+| MATLAB   | `utils/matlab/` (3 functions) | built-in + Signal Processing Toolbox |
+| R        | `utils/R/sync_align.R` | base R + stats (optional: R.matlab) |
+
+### Functions
+
+All three languages implement the same core functions:
+
+- **`load_recording`** — Load data from CSV/TXT/MAT files or in-memory objects. Auto-detects format. Accepts time column or sampling rate.
+- **`generate_sync_signal`** — Reproduce the exact Arduino PRNG sequence at any sample rate. Useful for aligning against the expected pattern without a reference device.
+- **`find_sync_lag`** — Cross-correlate two sync channels (handles different sample rates). Returns lag in seconds/samples, peak correlation, and confidence.
+- **`align_recordings`** — Align multiple recordings to a reference. Modes: `offset` (add aligned timestamps), `merge` (interpolate to common time base), `bundle` (correct timestamps, no interpolation).
+
+### Python CLI
+
+```bash
+# Find lag between two recordings
+python sync_align.py lag file1.csv file2.mat --sync-col sync --fs 1000
+
+# Align multiple recordings, output merged CSV
+python sync_align.py align file1.csv file2.mat file3.txt --sync-col sync --mode merge -o aligned.csv
+
+# Generate expected sync signal to CSV
+python sync_align.py generate --seed 42 --duration 60 --fs 1000 -o expected.csv
+```
+
+### Input Formats
+
+Each function accepts file paths (CSV, TXT, MAT) or in-memory data (DataFrame, matrix, array). Sync channel specified by column name or index. Time info via `time_col` or `fs` parameter.
+
 ## Author
 
 Nathan Baune — Emory University
