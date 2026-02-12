@@ -23,10 +23,10 @@
 #include <EEPROM.h>
 #include "config.h"
 
-// ---- Pin setup from config ----
-const int OUTPUT_PINS[] = {OUTPUT_PIN_1, OUTPUT_PIN_2, OUTPUT_PIN_3, OUTPUT_PIN_4};
-const int NUM_PINS = sizeof(OUTPUT_PINS) / sizeof(OUTPUT_PINS[0]);
-const int LED_PIN = 13;
+// ---- Pin setup ----
+// All 20 digital I/O pins on Leonardo: 0-13, A0-A5 (18-23)
+const int OUTPUT_PINS[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, A0, A1, A2, A3, A4, A5};
+const int NUM_PINS = NUM_OUTPUT_PINS;
 
 // ---- Runtime settings (loaded from EEPROM or config.h defaults) ----
 unsigned long minHighMs;
@@ -115,7 +115,6 @@ void setOutput(bool state) {
   for (int i = 0; i < NUM_PINS; i++) {
     digitalWrite(OUTPUT_PINS[i], state);
   }
-  digitalWrite(LED_PIN, state);
 }
 
 void printConfig() {
@@ -255,9 +254,6 @@ void setup() {
     pinMode(OUTPUT_PINS[i], OUTPUT);
     digitalWrite(OUTPUT_PINS[i], LOW);
   }
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
-
   Serial.begin(115200);
   unsigned long waitStart = millis();
   while (!Serial && (millis() - waitStart < 3000)) {

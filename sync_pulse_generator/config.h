@@ -14,13 +14,17 @@
 #define CONFIG_H
 
 // ---- Output Pins ----
-// These pins output the same signal simultaneously.
+// All 20 digital pins on Leonardo, output the same signal simultaneously.
 // Wire any pin + GND to a BNC cable for each device.
-// Leonardo digital pins 2-13 are available.
-#define OUTPUT_PIN_1  2
-#define OUTPUT_PIN_2  3
-#define OUTPUT_PIN_3  4
-#define OUTPUT_PIN_4  5
+// USB is handled internally by ATmega32U4 and doesn't use any pins.
+//
+// Pins 0-13:  Digital header pins
+//   0,1 = also HW UART (Serial1) - safe as outputs
+//   2,3 = also I2C (SDA/SCL) - safe as outputs
+//   13  = also onboard LED (will mirror the signal)
+//
+// Pins A0-A5 (18-23): Analog header pins, usable as digital outputs
+#define NUM_OUTPUT_PINS 20
 
 // ---- Timing Defaults (milliseconds) ----
 // HIGH duration range: how long the signal stays at 5V
