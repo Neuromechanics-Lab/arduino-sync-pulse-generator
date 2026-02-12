@@ -51,8 +51,8 @@ class Xorshift32:
 def _random_duration(prng: Xorshift32, min_ms: int, max_ms: int) -> int:
     if min_ms >= max_ms:
         return min_ms
-    rng = max_ms - min_ms + 1
-    return min_ms + (prng.next() % rng)
+    steps = (max_ms - min_ms) // 5 + 1   # 5 ms increments
+    return min_ms + (prng.next() % steps) * 5
 
 
 # ---------------------------------------------------------------------------

@@ -74,11 +74,11 @@ end
 
 
 function dur = random_duration(rval, min_ms, max_ms)
-% RANDOM_DURATION  Compute duration from PRNG value (matches Arduino).
+% RANDOM_DURATION  Compute duration from PRNG value (matches Arduino, 5ms increments).
     if min_ms >= max_ms
         dur = min_ms;
     else
-        rng = uint32(max_ms - min_ms + 1);
-        dur = min_ms + double(mod(rval, rng));
+        steps = uint32((max_ms - min_ms) / 5 + 1);
+        dur = min_ms + double(mod(rval, steps)) * 5;
     end
 end

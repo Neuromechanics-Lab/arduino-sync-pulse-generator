@@ -45,9 +45,9 @@ xorshift32_next <- function(prng) {
 
 random_duration <- function(prng, min_ms, max_ms) {
   if (min_ms >= max_ms) return(min_ms)
-  rng <- max_ms - min_ms + 1
+  steps <- (max_ms - min_ms) / 5 + 1   # 5 ms increments
   rval <- xorshift32_next(prng)
-  min_ms + (rval %% rng)
+  min_ms + (rval %% steps) * 5
 }
 
 
