@@ -17,15 +17,24 @@
  *
  * Voltage: 5V HIGH / 0V LOW (hardware fixed by ATmega32U4)
  *
- * Board: Arduino Leonardo
+ * Supported boards (both use ATmega32U4):
+ *   - Arduino Leonardo          -- FQBN: arduino:avr:leonardo  (20 pins)
+ *   - Pro Micro ATmega32U4 5V  -- FQBN: arduino:avr:micro      (18 pins)
+ *     Define BOARD_PRO_MICRO in config.h or via compiler flag to select
+ *     the Pro Micro pin layout.
  */
 
 #include <EEPROM.h>
 #include "config.h"
 
 // ---- Pin setup ----
-// All 20 digital I/O pins on Leonardo: 0-13, A0-A5 (18-23)
+// Pro Micro (BOARD_PRO_MICRO): 18 pins — 0-10, 14-16, A0-A3
+// Leonardo (default):          20 pins — 0-13, A0-A5
+#ifdef BOARD_PRO_MICRO
+const int OUTPUT_PINS[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15, 16, A0, A1, A2, A3};
+#else
 const int OUTPUT_PINS[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, A0, A1, A2, A3, A4, A5};
+#endif
 const int NUM_PINS = NUM_OUTPUT_PINS;
 
 // ---- Runtime settings (loaded from EEPROM or config.h defaults) ----

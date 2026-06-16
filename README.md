@@ -1,6 +1,6 @@
 # Arduino Sync Pulse Generator
 
-A pseudo-random square wave generator for Arduino Leonardo, designed for temporal synchronization of multi-device experimental recordings.
+A pseudo-random square wave generator for ATmega32U4-based Arduino boards, designed for temporal synchronization of multi-device experimental recordings.
 
 ## Purpose
 
@@ -10,12 +10,20 @@ The pseudo-random pattern produces a sharp autocorrelation peak, making it far m
 
 ## Hardware
 
-- **Board**: Arduino Leonardo (ATmega32U4)
-- **Output voltage**: 5V HIGH / 0V LOW (hardware fixed)
-- **Output pins**: All 20 digital I/O pins (0-13, A0-A5) output the same signal simultaneously
+Both supported boards use the ATmega32U4 at 5V/16MHz and are fully compatible.
+
+| Board | Output pins | FQBN |
+|---|---|---|
+| Arduino Leonardo | 20 (0–13, A0–A5) | `arduino:avr:leonardo` |
+| Pro Micro ATmega32U4 5V (e.g. Teyleten Type-C) | 18 (0–10, 14–16, A0–A3) | `arduino:avr:micro` |
+
+- **Output voltage**: 5V HIGH / 0V LOW (hardware fixed by ATmega32U4)
 - **Connection**: Wire any output pin + GND to a BNC cable for each device
 
 If your equipment expects 3.3V logic, use a voltage divider or level shifter on the output.
+
+> **Pro Micro note**: The standard Pro Micro footprint does not break out pins 11, 12, or 13.
+> Use pins 0–10, 14–16, and A0–A3 for signal output (18 pins total).
 
 ## Setup
 
@@ -29,19 +37,39 @@ arduino-cli core install arduino:avr
 
 ### Compile
 
+**Arduino Leonardo:**
 ```bash
 arduino-cli compile --fqbn arduino:avr:leonardo sync_pulse_generator
 ```
 
+**Pro Micro ATmega32U4 5V:**
+```bash
+arduino-cli compile --fqbn arduino:avr:micro \
+  --build-property "compiler.cpp.extra_flags=-DBOARD_PRO_MICRO" \
+  sync_pulse_generator
+```
+
 ### Upload
 
-The Leonardo requires a double-tap of the reset button to enter bootloader mode before uploading:
+Both boards use the same upload command pattern. Find your port first:
 
-1. Double-tap the reset button on the board
+```bash
+arduino-cli board list
+```
+
+**Arduino Leonardo** — requires a double-tap of the reset button to enter bootloader mode:
+
+1. Double-tap the reset button
 2. Immediately run:
 
 ```bash
 arduino-cli upload --fqbn arduino:avr:leonardo -p /dev/cu.usbmodemXXXX sync_pulse_generator
+```
+
+**Pro Micro ATmega32U4** — also requires a double-tap of the reset button. The port may change after the reset tap, so watch `board list` output and use the bootloader port (often a different address than the running port):
+
+```bash
+arduino-cli upload --fqbn arduino:avr:micro -p /dev/cu.usbmodemXXXX sync_pulse_generator
 ```
 
 Replace `/dev/cu.usbmodemXXXX` with the port shown by `arduino-cli board list`.
@@ -50,7 +78,9 @@ Replace `/dev/cu.usbmodemXXXX` with the port shown by `arduino-cli board list`.
 
 ### Compile-time defaults
 
-Edit `sync_pulse_generator/config.h` to change default timing ranges, PRNG seed, and pin assignments. These are loaded on first boot or after an EEPROM reset.
+Edit `sync_pulse_generator/config.h` to change default timing ranges and PRNG seed. These are loaded on first boot or after an EEPROM reset.
+
+To target the Pro Micro pin layout, either uncomment `#define BOARD_PRO_MICRO` at the top of `config.h`, or pass `-DBOARD_PRO_MICRO` as a build flag (shown in the compile commands above).
 
 ### Runtime commands
 

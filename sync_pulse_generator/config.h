@@ -14,17 +14,31 @@
 #define CONFIG_H
 
 // ---- Output Pins ----
-// All 20 digital pins on Leonardo, output the same signal simultaneously.
+// Pin count differs by board; see the per-board section below.
+// USB is handled internally by ATmega32U4 and doesn't consume any pins.
+// All listed pins output the same signal simultaneously.
 // Wire any pin + GND to a BNC cable for each device.
-// USB is handled internally by ATmega32U4 and doesn't use any pins.
 //
-// Pins 0-13:  Digital header pins
-//   0,1 = also HW UART (Serial1) - safe as outputs
-//   2,3 = also I2C (SDA/SCL) - safe as outputs
-//   13  = also onboard LED (will mirror the signal)
+// Arduino Leonardo (default)
+//   20 pins: 0-13, A0-A5 (18-23)
+//   0,1  = also HW UART (Serial1) - safe as outputs
+//   13   = also onboard LED (will mirror the signal)
 //
-// Pins A0-A5 (18-23): Analog header pins, usable as digital outputs
-#define NUM_OUTPUT_PINS 20
+// Pro Micro ATmega32U4 (Type-C)
+//   18 pins: 0-10, 14-16, A0-A3 (18-21)
+//   0,1  = also HW UART (Serial1) - safe as outputs
+//   No pin 11, 12, 13 broken out on standard Pro Micro footprint.
+//   A0-A3 = pins 18-21 in Arduino numbering.
+//
+// Select your board by passing -DBOARD_PRO_MICRO to the compiler, or
+// uncomment the define below:
+// #define BOARD_PRO_MICRO
+
+#ifdef BOARD_PRO_MICRO
+  #define NUM_OUTPUT_PINS 18
+#else
+  #define NUM_OUTPUT_PINS 20
+#endif
 
 // ---- Timing Defaults (milliseconds) ----
 // HIGH duration range: how long the signal stays at 5V
