@@ -1,6 +1,6 @@
 /*
  * Pseudo-Random Square Wave Sync Pulse Generator
- * Gothic Grandma Studios - Neurotrophy Ecosystem
+ * Nathan Baune
  *
  * Outputs a pseudo-random square wave on configurable pins.
  * The high and low durations are randomized within configurable
