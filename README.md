@@ -109,41 +109,60 @@ The generator uses a deterministic xorshift32 PRNG. The same seed always produce
 
 ## Alignment Utilities
 
-Post-processing tools to cross-correlate the sync channel across recordings and compute temporal offsets. Located in `sync_pulse_generator/utils/`.
+Post-processing tools to align multi-device recordings using the sync channel. Located in `sync_pulse_generator/utils/` — see **[`utils/README.md`](sync_pulse_generator/utils/README.md)** for full documentation, worked examples for two and for many signals, and the complete function reference.
+
+### Three ways to align
+
+| Method | Use when | Files |
+|---|---|---|
+| **Cross-correlation** | Both copies of the signal look alike | `sync_align.*` |
+| **Edge timing** | One copy went through an EMG amplifier, or you want per-transition error bars | `edge_sync.*`, `detect_edges`, `edge_delay` |
+| **Timecode frames** | You need absolute time, or to know which generator run a recording belongs to | `timecode.*`, `decode_timecode`, `align_to_timecode` |
+
+An EMG amplifier's high-pass turns each step into a transient spike, so the two waveforms stop resembling each other and correlation degrades — but their transition *times* still line up exactly, which is what edge timing measures.
 
 ### Languages
 
+All three implement the same functions with the same names and behaviour.
+
 | Language | Location | Dependencies |
 |----------|----------|--------------|
-| Python   | `utils/python/sync_align.py` | numpy, scipy, pandas |
-| MATLAB   | `utils/matlab/` (3 functions) | built-in + Signal Processing Toolbox |
-| R        | `utils/R/sync_align.R` | base R + stats (optional: R.matlab) |
+| Python   | `utils/python/` | numpy (scipy only for EMG filtering) |
+| MATLAB   | `utils/matlab/` | base MATLAB (Signal Processing Toolbox optional) |
+| R        | `utils/R/` | base R + stats (`signal` only for EMG filtering) |
 
-### Functions
+### Core functions
 
-All three languages implement the same core functions:
-
-- **`load_recording`** — Load data from CSV/TXT/MAT files or in-memory objects. Auto-detects format. Accepts time column or sampling rate.
-- **`generate_sync_signal`** — Reproduce the exact Arduino PRNG sequence at any sample rate. Useful for aligning against the expected pattern without a reference device.
-- **`find_sync_lag`** — Cross-correlate two sync channels (handles different sample rates). Returns lag in seconds/samples, peak correlation, and confidence.
-- **`align_recordings`** — Align multiple recordings to a reference. Modes: `offset` (add aligned timestamps), `merge` (interpolate to common time base), `bundle` (correct timestamps, no interpolation).
+- **`load_c3d_analog`** — Dependency-free C3D reader (no BTK or ezc3d needed), plus Nexus CSV exports. Takes rate, labels, and scaling from the file.
+- **`detect_edges`** — Square-wave transitions to sub-sample precision. Two detectors: a Schmitt trigger for directly recorded signals, and signed peak detection for EMG-passed ones. Reports onset rather than peak by default, avoiding a 1–2 ms bias.
+- **`edge_delay`** — Delay between two edge trains, matched by polarity and causally. Returns median, spread, per-polarity agreement, drift, and plain-language quality warnings.
+- **`sync_report`** — One call for every sync channel in a recording, with a full pairwise matrix.
+- **`shift_timestamps`** — Apply a measured delay to any number of channels, by relabelling time (lossless) or resampling.
+- **`process_emg`** — Standard EMG chain returning every intermediate stage, with flat/railed channel detection.
+- **`decode_timecode` / `align_to_timecode`** — Absolute anchors and run identity; refuses to fit across a generator restart.
+- **`find_sync_lag` / `align_recordings`** — Cross-correlation alignment (offset, merge, bundle modes).
 
 ### Python CLI
 
 ```bash
-# Find lag between two recordings
+# Every sync channel in a file, measured against a reference
+python edge_sync.py report SquareWaveTest01.c3d
+
+# Two named channels
+python edge_sync.py delay trial.c3d --ref SquareDirect --test SquareWirelessEmg
+
+# List what a file contains
+python edge_sync.py channels trial.c3d
+
+# Write a copy with corrected timestamps
+python edge_sync.py shift trial.c3d --delay 20.6 -o corrected.csv
+
+# Cross-correlation (the older path)
 python sync_align.py lag file1.csv file2.mat --sync-col sync --fs 1000
-
-# Align multiple recordings, output merged CSV
-python sync_align.py align file1.csv file2.mat file3.txt --sync-col sync --mode merge -o aligned.csv
-
-# Generate expected sync signal to CSV
 python sync_align.py generate --seed 42 --duration 60 --fs 1000 -o expected.csv
 ```
 
-### Input Formats
-
-Each function accepts file paths (CSV, TXT, MAT) or in-memory data (DataFrame, matrix, array). Sync channel specified by column name or index. Time info via `time_col` or `fs` parameter.
+Recordings in separate files, from separate devices, at different sample rates all compare directly — edge times are in seconds, so no resampling is needed.
 
 ## Author
 
