@@ -4,3 +4,13 @@ build/
 *.hex
 *.bin
 .arduino/
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# OpenSCAD generated exports (regenerate with trigger-box/export-parts.sh)
+trigger-box/exports/
