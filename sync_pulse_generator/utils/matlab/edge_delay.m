@@ -269,19 +269,24 @@ function w = local_quality(r, e_ref, e_tst)
             'will not align them properly.'], r.drift_total_ms);
     end
 
-    % Compare per polarity, not in total. A level detector reports one edge
-    % per transition while a rectified detector reports one signed peak per
-    % transition, so the totals are comparable only within a polarity.
-    % Counting them together makes a correct detection look like a doubling.
-    pol_names = {'rising', 'falling'};
-    ref_counts = [sum(e_ref.polarity > 0), sum(e_ref.polarity < 0)];
-    tst_counts = [sum(e_tst.polarity > 0), sum(e_tst.polarity < 0)];
-    for k = 1:2
-        if ref_counts(k) > 0 && tst_counts(k) > 1.5 * ref_counts(k)
-            w{end+1} = sprintf(['Test channel yielded %d %s edges against %d ', ...
-                'in the reference. Raise ''threshold'' or ''refractory'' in ', ...
-                'detect_edges if spurious peaks are being detected.'], ...
-                tst_counts(k), pol_names{k}, ref_counts(k)); %#ok<AGROW>
-        end
+    % Only compare edge counts when BOTH channels used the same detector.
+    %
+    % A level detector reports one edge per transition. A rectified detector
+    % reports a positive AND a negative peak at every transition, because the
+    % amplifier's response overshoots on the way back: a step up gives a
+    % positive spike followed by a negative one. So a correctly detected
+    % rectified channel legitimately carries about twice the reference's edge
+    % count in EVERY polarity, and flagging that ratio calls a good detection
+    % bad.
+    %
+    % Whether the pairing actually worked is told by the match rate and the
+    % rising/falling agreement, both already checked above.
+    n_ref = numel(e_ref.time);
+    n_tst = numel(e_tst.time);
+    if strcmp(e_ref.mode, e_tst.mode) && n_ref > 0 && n_tst > 1.5 * n_ref
+        w{end+1} = sprintf(['Test channel yielded %d edges against %d in the ', ...
+            'reference, using the same detector. Raise ''threshold'' or ', ...
+            '''refractory'' in detect_edges if spurious peaks are being ', ...
+            'detected.'], n_tst, n_ref);
     end
 end
