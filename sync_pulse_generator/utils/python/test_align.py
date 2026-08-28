@@ -230,6 +230,79 @@ def test_different_runs_refused():
     print("ok   recordings from different runs are refused, not merged")
 
 
+def test_sliding_window_tracks_a_wandering_clock():
+    """A clock whose RATE changes cannot be described by one line.
+
+    Anchors are the decoded frames. Rather than starting a segment AT a
+    frame — which leaves each boundary extrapolating in one direction,
+    exactly where the estimate is least supported — the window slides so
+    each point sits between anchors on both sides, and adjacent windows
+    overlap so a correction blends across a cut instead of stepping at it.
+
+    The window is only used when the anchors show the clock is genuinely
+    changing: on a well-behaved recorder a global line is exact and local
+    fits would just inject anchor noise.
+    """
+    import timecode as tc
+    rng = np.random.default_rng(14)
+    ti, lv = tc.generate_template(seed=42, duration_s=320, run_id=137,
+                                  tc_interval_s=10)
+    t = np.array(ti) / 1000.0
+    l = np.array(lv)
+    tmpl = al.build_template(400, run_id=137)
+
+    def fit_for(w, mk):
+        tg = t[w]
+        loc = _jit(mk(tg), rng)
+        f = al.lock_source(
+            al.Source.from_edges("x", loc, polarity=np.where(l[w] == 1, 1, -1)),
+            tmpl)
+        return f, np.abs(f.to_global(loc) - tg) * 1000
+
+    # Constant offset: a straight line, so no sliding.
+    f_clean, e_clean = fit_for((t > 20) & (t < 140), lambda tg: tg - 20.0)
+    assert not f_clean._nonlinear, "clean clock should not need sliding"
+    assert np.median(e_clean) < 1.5, np.median(e_clean)
+
+    # Wandering rate: sliding required, and must stay accurate throughout.
+    def wander(tg):
+        x = tg - 15.0
+        return x * (1 - 0.0004 * (x / x.max()))
+
+    f_w, e_w = fit_for((t > 15) & (t < 215), wander)
+    assert f_w._nonlinear, "a wandering clock should trigger sliding"
+    assert np.median(e_w) < 2.0, np.median(e_w)
+    assert e_w.max() < 10.0, e_w.max()
+    print("ok   sliding window tracks a wandering clock, off for a steady one")
+
+
+def test_frame_gaps_bracket_missing_data():
+    """Frames arrive on a known cadence, so a gap in the sequence says both
+    that data is missing and which window it is missing from — a much
+    tighter bound on where to cut than a fitted residual gives."""
+    import timecode as tc
+    rng = np.random.default_rng(15)
+    ti, lv = tc.generate_template(seed=42, duration_s=320, run_id=137,
+                                  tc_interval_s=10)
+    t = np.array(ti) / 1000.0
+    l = np.array(lv)
+    w = (t > 15) & (t < 215)
+    true_t = t[w] - 15.0
+    # lose 30 s of data outright
+    alive = (true_t < 100.0) | (true_t > 130.0)
+    loc = _jit(true_t[alive], rng)
+    pol = np.where(l[w] == 1, 1, -1)[alive]
+
+    f = al.lock_source(al.Source.from_edges("x", loc, polarity=pol),
+                       al.build_template(400, run_id=137))
+    assert f.ok, f.note
+    big = [g for g in f.frame_gaps if g[2] >= 2]
+    assert big, f"expected a multi-frame gap, got {f.frame_gaps}"
+    t_before, t_after, n_missing = big[0]
+    assert t_before <= 100.5 and t_after >= 129.0, (t_before, t_after)
+    print("ok   frame gaps bracket missing data for cutting")
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0
