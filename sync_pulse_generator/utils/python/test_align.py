@@ -303,6 +303,47 @@ def test_frame_gaps_bracket_missing_data():
     print("ok   frame gaps bracket missing data for cutting")
 
 
+def test_decimation_is_antialiased():
+    """Downsampling without a low-pass is silent corruption, not just
+    inaccuracy: a 230 Hz tone taken from 2000 Hz to 100 Hz reappears at FULL
+    amplitude disguised as 30 Hz, indistinguishable from real signal."""
+    fs_hi, fs_lo = 2000.0, 100.0
+    t = np.arange(int(6 * fs_hi)) / fs_hi
+    dst = np.arange(int(6 * fs_lo)) / fs_lo
+
+    for f0 in (10.0, 30.0):          # below the new Nyquist: must survive
+        sig = np.sin(2 * np.pi * f0 * t)
+        out = al._resample_to(t, sig, dst, how="linear",
+                              target_fs=fs_lo, src_fs=fs_hi)
+        assert np.nanmax(np.abs(out)) > 0.7, (f0, np.nanmax(np.abs(out)))
+
+    for f0 in (70.0, 130.0, 230.0, 430.0):   # above: must be suppressed
+        sig = np.sin(2 * np.pi * f0 * t)
+        naive = np.interp(dst, t, sig)
+        out = al._resample_to(t, sig, dst, how="linear",
+                              target_fs=fs_lo, src_fs=fs_hi)
+        assert np.nanmax(np.abs(naive)) > 0.7, "naive should alias badly"
+        assert np.nanmax(np.abs(out)) < 0.15, (f0, np.nanmax(np.abs(out)))
+
+    print("ok   decimation is anti-aliased; naive interpolation is not")
+
+
+def test_nearest_is_not_filtered():
+    """'nearest' exists to keep marker and categorical values intact.
+    Filtering them would invent levels that were never recorded."""
+    fs_hi, fs_lo = 1000.0, 50.0
+    t = np.arange(int(4 * fs_hi)) / fs_hi
+    marker = np.zeros_like(t)
+    marker[(t > 1.0) & (t < 1.2)] = 3.0      # a discrete code
+    marker[(t > 2.5) & (t < 2.7)] = 7.0
+    dst = np.arange(int(4 * fs_lo)) / fs_lo
+    out = al._resample_to(t, marker, dst, how="nearest",
+                          target_fs=fs_lo, src_fs=fs_hi)
+    vals = set(np.unique(out[np.isfinite(out)]).tolist())
+    assert vals <= {0.0, 3.0, 7.0}, f"nearest invented values: {vals}"
+    print("ok   'nearest' preserves discrete marker values")
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

@@ -60,6 +60,12 @@ try:
 except ImportError:                                      # pragma: no cover
     HAVE_EDGE_SYNC = False
 
+try:
+    from scipy import signal as sp_signal
+    HAVE_SCIPY = True
+except ImportError:                                      # pragma: no cover
+    HAVE_SCIPY = False
+
 
 # Firmware defaults (config.h). The generator config is fixed for this lab,
 # so the template is reproducible without per-recording metadata.
@@ -812,12 +818,70 @@ def lock_source(src: Source, tmpl: dict, tol_s: float = INTERVAL_TOL_S) -> Fit:
 # Stitching
 # ---------------------------------------------------------------------------
 
-def _resample_to(src_t, src_v, dst_t, how="linear", gap_s=None):
+def _antialias(src_t, src_v, target_fs, src_fs=None):
+    """Low-pass a channel before it is decimated.
+
+    Downsampling without this is silent corruption, not merely inaccuracy: a
+    230 Hz tone taken from 2000 Hz to 100 Hz reappears at FULL amplitude
+    disguised as 30 Hz, indistinguishable from real signal. Plain
+    interpolation cannot help — the information is folded before it is
+    sampled.
+
+    A zero-phase Butterworth is used so the filter adds no lag, which matters
+    here because the whole point of this module is timing.
+    """
+    if src_fs is None:
+        d = np.diff(src_t)
+        d = d[np.isfinite(d) & (d > 0)]
+        if d.size == 0:
+            return src_v
+        src_fs = 1.0 / float(np.median(d))
+
+    if target_fs >= src_fs * 0.98:      # not decimating
+        return src_v
+    if not HAVE_SCIPY:
+        return src_v                    # caller warns
+
+    cutoff = 0.45 * target_fs           # margin below the new Nyquist
+    wn = cutoff / (src_fs / 2.0)
+    if not (0 < wn < 1):
+        return src_v
+
+    v = np.asarray(src_v, float)
+    good = np.isfinite(v)
+    if good.sum() < 16:
+        return src_v
+
+    # Filter over the finite span only; a NaN anywhere poisons filtfilt.
+    out = v.copy()
+    idx = np.flatnonzero(good)
+    seg = v[idx[0]:idx[-1] + 1]
+    if np.any(~np.isfinite(seg)):
+        seg = np.interp(np.arange(seg.size),
+                        np.flatnonzero(np.isfinite(seg)),
+                        seg[np.isfinite(seg)])
+    b, a = sp_signal.butter(4, wn, btype="low")
+    pad = min(3 * max(len(a), len(b)), max(0, seg.size // 2 - 1))
+    if seg.size <= pad * 2 + 1:
+        return src_v
+    out[idx[0]:idx[-1] + 1] = sp_signal.filtfilt(b, a, seg, padlen=pad)
+    out[~good] = np.nan
+    return out
+
+
+def _resample_to(src_t, src_v, dst_t, how="linear", gap_s=None,
+                 target_fs=None, src_fs=None):
     """Put one channel on the common time base.
 
     Never interpolates across a gap: where the source has no samples within
     `gap_s`, the output is NaN. Inventing values across a dropped chunk would
     silently manufacture data.
+
+    how:
+        'linear'   interpolate (anti-aliased first when decimating)
+        'nearest'  nearest sample — for markers and categorical channels
+                   that must not be averaged or filtered
+        'decimate' explicit anti-aliased downsample
     """
     src_t = np.asarray(src_t, float)
     src_v = np.asarray(src_v, float)
@@ -826,17 +890,24 @@ def _resample_to(src_t, src_v, dst_t, how="linear", gap_s=None):
         return np.full(dst_t.shape, np.nan)
     st, sv = src_t[good], src_v[good]
 
+    # Anti-alias before decimating. 'nearest' is exempt: it exists to keep
+    # marker values intact, and filtering them would invent levels that were
+    # never recorded.
+    if how in ("linear", "decimate") and target_fs is not None:
+        sv = _antialias(st, sv, target_fs, src_fs=src_fs)
+        keep = np.isfinite(sv)
+        st, sv = st[keep], sv[keep]
+        if st.size < 2:
+            return np.full(dst_t.shape, np.nan)
+
     if how == "nearest":
         idx = np.clip(np.searchsorted(st, dst_t), 1, len(st) - 1)
-        left = st[idx - 1]
-        right = st[idx]
-        pick = np.where(np.abs(dst_t - left) <= np.abs(right - dst_t),
+        pick = np.where(np.abs(dst_t - st[idx - 1]) <= np.abs(st[idx] - dst_t),
                         idx - 1, idx)
         out = sv[pick]
     else:
         out = np.interp(dst_t, st, sv, left=np.nan, right=np.nan)
 
-    # Blank anything outside the source's coverage or inside a real gap.
     out[(dst_t < st[0]) | (dst_t > st[-1])] = np.nan
     if gap_s is not None and len(st) > 1:
         gaps = np.diff(st)
@@ -1015,7 +1086,19 @@ def align_recordings(sources: Sequence[Source],
         gap_s = (gap_factor / s.fs) if s.fs else None
         for c in range(data.shape[1]):
             columns[f"{s.name}.{labels[c]}"] = _resample_to(
-                g, data[:, c], common, how=resample, gap_s=gap_s)
+                g, data[:, c], common, how=resample, gap_s=gap_s,
+                target_fs=target_fs, src_fs=s.fs)
+
+    if not HAVE_SCIPY:
+        for s_, _f in usable:
+            if s_.fs and target_fs < s_.fs * 0.98:
+                warnings.append(
+                    f"{s_.name}: decimating {s_.fs:g} Hz to {target_fs:g} Hz "
+                    f"without scipy, so no anti-alias filter was applied. "
+                    f"Content above {target_fs/2:g} Hz will fold back into "
+                    f"the result at full amplitude. Install scipy, or raise "
+                    f"target_fs.")
+                break
 
     result.table = {"time": common, "columns": columns,
                     "fs": target_fs, "n": len(common)}
