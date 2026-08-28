@@ -395,6 +395,18 @@ edge_delay <- function(edges_ref, edges_test, min_delay = -2,
                              "devices may run on independent clocks; a single ",
                              "offset will not align them properly."),
                       r$drift_total_ms))
+
+  # Only compare edge counts when BOTH channels used the same detector.
+  # A level detector reports one edge per transition; a rectified detector
+  # reports a positive AND a negative peak at each one, so a correct
+  # rectified detection legitimately carries about twice the reference count
+  # and comparing across modes would call it spurious.
+  n_ref <- length(e_ref$time); n_tst <- length(e_test$time)
+  if (identical(e_ref$mode, e_test$mode) && n_ref > 0 && n_tst > 1.5 * n_ref)
+    w <- c(w, sprintf(paste0("Test channel yielded %d edges against %d in the ",
+                             "reference, using the same detector. Raise ",
+                             "'threshold' or 'refractory' if spurious peaks ",
+                             "are being detected."), n_tst, n_ref))
   w
 }
 
