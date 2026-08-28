@@ -255,6 +255,14 @@ Raising the fraction buys precision back at the cost of a larger (still
 constant) bias. Report which setting you used — the numbers are not
 interchangeable.
 
+**On this recording the onset delays are bimodal**, splitting into clusters
+about 0.9 ms apart (visible in panel 3 of `plot_sync_check`). Both clusters
+contain rising and falling edges at equal spike amplitude, so it is not a
+polarity bug or weak-spike effect — it is where the flank crossing lands
+relative to the 1 ms sample grid. The median is unaffected, and raising
+`onset_fraction` onto the steeper part of the flank collapses it. Look at the
+histogram before quoting a mean.
+
 ## How edge matching works
 
 `edge_delay` pairs edges under three rules, each preventing a specific failure:

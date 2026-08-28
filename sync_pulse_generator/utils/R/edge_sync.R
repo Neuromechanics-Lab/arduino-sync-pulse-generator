@@ -36,6 +36,30 @@ mad_noise <- function(x) 1.4826 * stats::median(abs(x - stats::median(x)))
 # used.
 ONSET_FRACTION <- 0.25
 
+# find_channel(labels, pattern)
+#   Indices of channels whose label contains `pattern`, case-insensitive.
+#
+#   Matches the label WITHOUT its device prefix first, falling back to the
+#   full label only if that finds nothing. The prefix would otherwise swallow
+#   short muscle abbreviations: Vicon writes channels as "Voltage.5-TA", and a
+#   naive substring search for "TA" hits the "ta" in every "Voltage.",
+#   returning the entire device.
+find_channel <- function(labels, pattern, unique_only = FALSE) {
+  bare <- sub("^.*\\.", "", labels)
+  hits <- grep(pattern, bare, ignore.case = TRUE)
+  if (length(hits) == 0)
+    hits <- grep(pattern, labels, ignore.case = TRUE)
+  if (unique_only) {
+    if (length(hits) == 0)
+      stop("No channel matching '", pattern, "'. Available: ",
+           paste(labels, collapse = ", "))
+    if (length(hits) > 1)
+      stop("Pattern '", pattern, "' matched ", length(hits), " channels: ",
+           paste(labels[hits], collapse = ", "))
+  }
+  hits
+}
+
 # ---------------------------------------------------------------------------
 # detect_edges — square-wave transition times, to sub-sample precision
 # ---------------------------------------------------------------------------

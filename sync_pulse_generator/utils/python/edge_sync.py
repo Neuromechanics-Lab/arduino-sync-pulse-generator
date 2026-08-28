@@ -99,10 +99,26 @@ class AnalogRecording:
     def time(self) -> np.ndarray:
         return np.arange(self.n_samples) / self.fs
 
+    @staticmethod
+    def _bare(label: str) -> str:
+        """Label without its device prefix: 'Voltage.5-TA' -> '5-TA'."""
+        return label.rsplit(".", 1)[-1]
+
     def find(self, pattern: str, unique: bool = False):
-        """Channel indices whose label contains `pattern`, case-insensitive."""
+        """
+        Channel indices whose label contains `pattern`, case-insensitive.
+
+        Matches against the label WITHOUT its device prefix first, falling
+        back to the full label only if that finds nothing. The prefix would
+        otherwise swallow short muscle abbreviations: Vicon writes channels
+        as 'Voltage.5-TA', and a naive substring search for 'TA' hits the
+        'ta' in every 'Voltage.', returning the entire device.
+        """
         pat = pattern.lower()
-        hits = [i for i, l in enumerate(self.labels) if pat in l.lower()]
+        hits = [i for i, l in enumerate(self.labels)
+                if pat in self._bare(l).lower()]
+        if not hits:
+            hits = [i for i, l in enumerate(self.labels) if pat in l.lower()]
         if unique:
             if not hits:
                 raise ValueError(

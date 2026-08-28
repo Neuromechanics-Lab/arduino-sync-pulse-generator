@@ -27,7 +27,24 @@ function [idx, name] = find_channel(rec, pattern, varargin)
     if o.exact
         hits = find(strcmpi(labels, pattern));
     else
-        hits = find(contains(lower(labels), lower(pattern)));
+        % Match the label WITHOUT its device prefix first, falling back to
+        % the full label only if that finds nothing. The prefix would
+        % otherwise swallow short muscle abbreviations: Vicon writes channels
+        % as 'Voltage.5-TA', and a naive substring search for 'TA' hits the
+        % 'ta' in every 'Voltage.', returning the entire device.
+        bare = cell(size(labels));
+        for k = 1:numel(labels)
+            d = strfind(labels{k}, '.');
+            if isempty(d)
+                bare{k} = labels{k};
+            else
+                bare{k} = labels{k}(d(end)+1:end);
+            end
+        end
+        hits = find(contains(lower(bare), lower(pattern)));
+        if isempty(hits)
+            hits = find(contains(lower(labels), lower(pattern)));
+        end
     end
 
     if o.unique
