@@ -150,6 +150,86 @@ def test_short_recording_reports_clearly():
     print("ok   too-short recording fails with an explanation")
 
 
+def test_timecode_gives_run_id_and_offset():
+    """The binary frame beats the fingerprint where it survives.
+
+    A frame states its elapsed second outright, checksum-verified, and is the
+    only evidence of WHICH run was recorded — a fixed seed makes every run's
+    waveform identical apart from the frame payload.
+    """
+    import timecode as tc
+    rng = np.random.default_rng(11)
+    ti, lv = tc.generate_template(seed=42, duration_s=200, run_id=137,
+                                  tc_interval_s=10)
+    t = np.array(ti) / 1000.0
+    l = np.array(lv)
+    w = (t > 23) & (t < 160)
+    e = _jit(t[w] - 23.0, rng)
+    pol = np.where(l[w] == 1, 1, -1)
+
+    tmpl137 = al.build_template(300, run_id=137)
+    f = al.lock_source(al.Source.from_edges("x", e, polarity=pol), tmpl137)
+    assert f.ok, f.note
+    assert f.source_of_lock == "timecode", f.source_of_lock
+    assert f.run_id == 137, f.run_id
+    assert abs(f.offset_s - 23.0) < 0.005, f.offset_s
+
+    # Rising-only must decode too: frame pulses have constant width, so a
+    # single-polarity stream carries the same intervals.
+    fr = al.lock_source(
+        al.Source.from_edges("r", e[pol > 0], polarity="rising"), tmpl137)
+    assert fr.run_id == 137, fr.run_id
+    assert abs(fr.offset_s - 23.0) < 0.005, fr.offset_s
+    print("ok   timecode frames give run ID and offset directly")
+
+
+def test_run_id_discovered_not_assumed():
+    """align_recordings must read the run from the signal. Building the
+    template for the wrong run leaves offsets right but drops ~30% of pairs,
+    because the frame payload differs between runs."""
+    import timecode as tc
+    rng = np.random.default_rng(12)
+
+    def dev(name, run, start, dur):
+        ti, lv = tc.generate_template(seed=42, duration_s=start + dur + 40,
+                                      run_id=run, tc_interval_s=10)
+        t = np.array(ti) / 1000.0
+        l = np.array(lv)
+        w = (t > start) & (t < start + dur)
+        return al.Source.from_edges(name, _jit(t[w] - start, rng),
+                                    polarity=np.where(l[w] == 1, 1, -1))
+
+    r = al.align_recordings([dev("a", 137, 20, 120), dev("b", 137, 50, 120)],
+                            mode="lags")
+    assert all(f.run_id == 137 for f in r.fits), [f.run_id for f in r.fits]
+    assert all(f.match_rate > 0.98 for f in r.fits), \
+        [f.match_rate for f in r.fits]
+    assert abs(r.lag_between("a", "b") - 30.0) < 0.01
+    print("ok   run ID discovered from the recordings, not assumed")
+
+
+def test_different_runs_refused():
+    """Two runs count elapsed from different zeros and cannot be merged."""
+    import timecode as tc
+    rng = np.random.default_rng(13)
+
+    def dev(name, run, start, dur):
+        ti, lv = tc.generate_template(seed=42, duration_s=start + dur + 40,
+                                      run_id=run, tc_interval_s=10)
+        t = np.array(ti) / 1000.0
+        l = np.array(lv)
+        w = (t > start) & (t < start + dur)
+        return al.Source.from_edges(name, _jit(t[w] - start, rng),
+                                    polarity=np.where(l[w] == 1, 1, -1))
+
+    r = al.align_recordings([dev("a", 137, 20, 120), dev("c", 138, 50, 120)],
+                            mode="lags")
+    runs = {f.run_id for f in r.fits}
+    assert runs == {137, 138}, runs
+    assert any("DIFFERENT generator runs" in w for w in r.warnings), r.warnings
+    print("ok   recordings from different runs are refused, not merged")
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

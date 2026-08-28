@@ -187,6 +187,8 @@ class Fit:
     drops: list = field(default_factory=list)   # (local_time, step_ms)
     segments: list = field(default_factory=list)  # (t0,t1,offset,rate) per span
     run_id: Optional[int] = None
+    frames: list = field(default_factory=list)  # decoded (t_rec, elapsed_s)
+    source_of_lock: str = ""     # 'timecode' or 'fingerprint'
     note: str = ""
 
     def to_global(self, t_local):
@@ -321,6 +323,55 @@ def _pr_intervals(edges: np.ndarray):
 # ---------------------------------------------------------------------------
 # Locking a recording to the template
 # ---------------------------------------------------------------------------
+
+def decode_source_frames(src: Source):
+    """Read the binary timecode frames a recording carries, if any.
+
+    A frame is 52 bits of pulse timing: [16-bit run ID][32-bit elapsed
+    seconds][4-bit checksum]. Where one survives it beats any fingerprint —
+    it states the position outright, checksum-verified, and it is the ONLY
+    thing that identifies WHICH RUN was recorded, since a fixed seed makes
+    every run's waveform identical.
+
+    The decoder needs a single-polarity edge stream: frame pulses have
+    constant width, so rising-only and falling-only both decode, but an
+    interleaved both-edges list halves every interval and decodes nothing.
+    Each polarity present is therefore tried separately.
+
+    Returns (frames, run_id) with only checksum-valid frames.
+    """
+    t = np.asarray(src.edge_times, float)
+    if t.size < 55:                      # a whole frame is 55 pulses
+        return [], None
+
+    tries = []
+    if src.polarity is None:
+        tries.append((t, "rising"))
+        tries.append((t, "falling"))
+    else:
+        if np.any(src.polarity > 0):
+            tries.append((t[src.polarity > 0], "rising"))
+        if np.any(src.polarity < 0):
+            tries.append((t[src.polarity < 0], "falling"))
+
+    best = []
+    for edges, edge_kind in tries:
+        if edges.size < 55:
+            continue
+        try:
+            got = tc.decode_frames(sorted(edges.tolist()), edge=edge_kind)
+        except Exception:
+            continue
+        ok = [f for f in got if f.get("ok")]
+        if len(ok) > len(best):
+            best = ok
+
+    if not best:
+        return [], None
+    ids = [f["run_id"] for f in best]
+    run_id = max(set(ids), key=ids.count)
+    return best, run_id
+
 
 def _which_stream(src: Source) -> str:
     """Whether to match against the template's rising, falling, or all edges."""
@@ -601,7 +652,28 @@ def lock_source(src: Source, tmpl: dict, tol_s: float = INTERVAL_TOL_S) -> Fit:
                     f"too short, or all its edges fall inside timecode frames")
         return fit
 
-    A = _anchors(src_edges, sub, tol_s)
+    # Prefer the binary timecode frames when the recording carries them.
+    # A decoded frame states its elapsed second outright and is checksum
+    # verified, so it beats a fingerprint search: no ambiguity, no template
+    # comparison, and it is the only evidence of WHICH RUN this is.
+    frames, run_id = decode_source_frames(src)
+    fit.frames = [(f["t_rec"], f["elapsed_s"]) for f in frames]
+    fit.run_id = run_id
+
+    A = np.empty((0, 3))
+    if len(frames) >= 2:
+        fa = np.array([[f["t_rec"], float(f["elapsed_s"]), 1.0]
+                       for f in frames])
+        # Frames land exactly on the interval tick (the firmware holds LOW
+        # through a lead-in), so each is an exact anchor, not an approximate
+        # one. Confidence 1.0 reflects the checksum, not a vote.
+        A = fa
+        fit.source_of_lock = "timecode"
+
+    if len(A) < 2:
+        A = _anchors(src_edges, sub, tol_s)
+        fit.source_of_lock = "fingerprint"
+
     if len(A) == 0:
         fit.note = ("could not lock to the template. Check that the seed and "
                     "timing config match the firmware that produced this "
@@ -712,7 +784,7 @@ def align_recordings(sources: Sequence[Source],
                      resample: str = "linear",
                      target_fs: Optional[float] = None,
                      duration_s: Optional[float] = None,
-                     run_id: int = 1,
+                     run_id: Optional[int] = None,
                      tol_s: float = INTERVAL_TOL_S,
                      gap_factor: float = 3.0) -> AlignResult:
     """
@@ -738,7 +810,9 @@ def align_recordings(sources: Sequence[Source],
         rate, which upsamples the slower ones rather than discarding detail
         from the faster ones.
     duration_s : template length. Defaults to covering the latest edge seen.
-    run_id : generator run to build the template for.
+    run_id : generator run to build the template for. Default None
+        means read it from the recordings' own timecode frames,
+        falling back to 1 when none decode.
     gap_factor : in stitch, a source gap wider than this many nominal sample
         periods is treated as missing data and filled with NaN rather than
         interpolated across.
@@ -757,10 +831,50 @@ def align_recordings(sources: Sequence[Source],
     if duration_s is None:
         duration_s = max(60.0, span * 1.5 + 60.0)
 
+    # Discover the run BEFORE building the template. Frame payloads encode
+    # the run ID, so a template built for the wrong run has the right
+    # pseudo-random train but different frame bits — offsets still come out
+    # right (the frames supply them) while ~30% of edges fail to pair. Ask
+    # the recordings which run they are, rather than assuming.
+    if run_id is None:
+        votes = []
+        for s in sources:
+            _, rid = decode_source_frames(s)
+            if rid is not None:
+                votes.append(rid)
+        run_id = max(set(votes), key=votes.count) if votes else 1
+
     tmpl = build_template(duration_s, run_id=run_id)
 
     fits = [lock_source(s, tmpl, tol_s=tol_s) for s in sources]
     warnings = []
+
+    # Run identity. A fixed seed makes every run's waveform identical, so the
+    # decoded run ID is the only thing that distinguishes one start from
+    # another. Recordings from different runs count elapsed time from
+    # different zeros and CANNOT share a timeline — that is a hard error in
+    # the making, not a warning to bury at the bottom.
+    seen = {f.run_id for f in fits if f.run_id is not None}
+    if len(seen) > 1:
+        by_run = {}
+        for f in fits:
+            if f.run_id is not None:
+                by_run.setdefault(f.run_id, []).append(f.name)
+        detail = "; ".join(f"run {r}: {', '.join(n)}"
+                           for r, n in sorted(by_run.items()))
+        warnings.append(
+            f"Recordings come from {len(seen)} DIFFERENT generator runs "
+            f"({detail}). Each run restarts the elapsed clock from its own "
+            f"zero, so these cannot be placed on one timeline. Split them by "
+            f"run and align each group separately.")
+    elif seen:
+        only = next(iter(seen))
+        for f in fits:
+            if f.ok and f.run_id is None and f.source_of_lock == "fingerprint":
+                warnings.append(
+                    f"{f.name}: no timecode frame decoded, so it was located "
+                    f"by pattern alone and its run could not be confirmed. It "
+                    f"is assumed to belong to run {only}.")
 
     for f in fits:
         if not f.ok:
