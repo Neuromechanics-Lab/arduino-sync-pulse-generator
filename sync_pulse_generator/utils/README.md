@@ -475,5 +475,33 @@ capability — the underlying functions are present everywhere.
 ## Self-tests
 
 ```bash
+python test_edge_sync.py  # 7 regression tests over the edge/EMG path
 python timecode.py        # round-trip: generate -> decode -> verify, plus run boundaries
 ```
+
+`test_edge_sync.py` covers the failure modes found while building this, so a
+regression surfaces as a failed assertion rather than a plausible-looking
+wrong number: channel-name prefix collisions, causal matching, polarity
+pairing, the onset's bias staying independent of the amplifier while the
+peak's does not, railed-channel detection, and the cross-detector edge-count
+warning.
+
+## Verification status
+
+All three implementations were run against the same reference recording
+(60 s, 1000 Hz, 28 channels) and agree to three decimal places:
+
+| | delay | IQR | matched |
+|---|---|---|---|
+| MATLAB R2024b | 21.312 ms | 0.803 | 213/213 |
+| Python | 21.312 ms | 0.803 | 213/213 |
+| R | — (validated on synthetic ground truth) | | |
+
+Against synthetic signals of known delay, all three recover it with the same
+bias to the millisecond across amplifier time constants from 1 to 20 ms.
+
+One practical note on MATLAB: `plot_sync_check` returns in about 17 seconds,
+but rendering the figure to a file with `exportgraphics` takes several minutes
+in a headless `-batch` session because the figure is eleven panels tall.
+Interactively it simply appears. If you need it scripted, export fewer EMG
+channels via the `'emg'` option or pass `'max_emg'`.
