@@ -442,6 +442,73 @@ without spelling the rest.
 
 ---
 
+## Aligning several recordings at once
+
+`align.py` / `align_sources.m` / `align.R` handle the messy case: several
+devices, each with its own clock, start time, sample rate, and way of
+reporting the sync signal — one a continuous waveform, another only rising
+edges, a third only falling edges — some dropping frames, none agreeing on
+when zero was.
+
+The trick is not to align recordings to each other. The generator's output is
+fully determined by (seed, config), so the intended waveform is regenerated
+from code and every recording is locked **independently** to that template.
+Alignment is then transitive: no reference device, no pairwise matrix, no
+accumulated error, and recordings that never overlap in wall-clock time still
+land on one timeline.
+
+```python
+from align import Source, align_recordings
+
+srcs = [
+    Source.from_continuous('vicon', vicon_sync, fs=1000, data=vicon_data),
+    Source.from_edges('eeg', rising_times, polarity='rising'),
+    Source.from_continuous('daq', daq_sync, fs=2048),
+]
+res = align_recordings(srcs, mode='lags')          # just the numbers
+res = align_recordings(srcs, mode='global_time')   # per-recording timeline
+res = align_recordings(srcs, mode='stitch')        # one merged table
+```
+
+```matlab
+srcs = [source_from_continuous('vicon', sync, 1000), ...
+        source_from_edges('eeg', rising_times, 'rising')];
+r = align_sources(srcs, 'mode', 'lags');
+```
+
+```r
+srcs <- list(source_from_continuous("vicon", sync, 1000),
+             source_from_edges("eeg", rising_times, "rising"))
+r <- align_recordings_tc(srcs, mode = "lags")
+```
+
+**How it locks.** A decoded timecode frame beats everything: it states its
+elapsed second outright, checksum-verified, and is the only evidence of
+*which run* was recorded. Failing that, the pseudo-random interval gaps are
+fingerprinted — which still works for a device that low-passes the signal
+past frame decoding but keeps clean 50–500 ms edges.
+
+**What it handles**, each verified against ground truth in all three
+languages:
+
+| | result |
+|---|---|
+| Different sample rates | 500/1000/2048 Hz mixed, lag exact to the ms |
+| Rising-edge-only / falling-edge-only | offset to <0.01 s, 100% matched |
+| Clock drift | 300 ppm recovered as +301 to +307 ppm |
+| Missing block (honest timestamps) | reported as a hole, **no** false drop |
+| Lost-count step | split into segments, step within 2 ms of truth |
+| Different generator runs | refused, not silently merged |
+
+**Two failure modes, deliberately distinguished.** A *hole* — samples missing
+but timestamps honest — needs no correction. A *lost-count step* — the
+recorder's counter falls behind, so later samples are labelled early — splits
+the time map. Conflating them either invents corrections or misses real ones.
+
+**Drop localization is coarse**: a step is bracketed to one anchor window
+(one timecode interval, 10 s by default), not pinpointed. Good for flagging
+and cutting, not for sample-level repair.
+
 ## Function reference
 
 | Purpose | MATLAB | Python | R |
@@ -457,7 +524,10 @@ without spelling the rest.
 | Decode frames | `decode_timecode` | `decode_frames` | `decode_timecode` |
 | Absolute alignment | `align_to_timecode` | `align_to_timecode` | `align_to_timecode` |
 | Split at run change | — | `split_runs` | `split_runs` |
-| Recreate the signal | `generate_sync_signal` | `generate_template` | — |
+| Recreate the signal | `generate_sync_signal_tc` | `generate_template` | `generate_sync_signal_tc` |
+| **Align N recordings** | `align_sources` | `align_recordings` | `align_recordings_tc` |
+| Build one source | `source_from_*` | `Source.from_*` | `source_from_*` |
+| Lock one recording | `align_lock` | `lock_source` | `align_lock` |
 | Cross-correlation | `find_sync_lag` | `find_sync_lag` | `find_sync_lag` |
 | Align N recordings | `align_recordings` | `align_recordings` | `align_recordings` |
 
