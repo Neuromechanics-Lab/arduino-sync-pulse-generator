@@ -46,7 +46,21 @@ unsupported wall that could bow. Two things fix that:
   so the face plate still seats on the posts.
 - **Two cross beams** (`beam_w` 8 mm × `beam_h` 4 mm) span the short way, wall to
   wall, at the PCB post spacing. They close the load path between the long
-  walls, so the walls can no longer splay.
+  walls, so the walls can no longer splay. Their top faces are **flush with the
+  rim**, coplanar with the ledge and the corner posts.
+
+**Print the frame RIM DOWN.** Flush beams are what makes that work: the whole
+top surface — rim, ledge and both beams — becomes the first layer, laid flat on
+the plate, and the hanging posts grow vertically off solid material. Recessed
+even slightly, the beams would be 45 mm unsupported bridges whichever way up the
+part printed, and the post pilots that have to hold an M2.5 thread would be
+forming off a bridged surface. No supports either way up, but rim-down is the
+one that prints the posts accurately.
+
+Because the beams share the rim plane with the corner posts, the face plate now
+seats on them too — more bearing surface, but the beam tops must be exactly
+coplanar or the plate rocks. The model is (verified: max z equals the rim
+exactly, not a layer proud).
 
 **The board hangs from the beams**, horizontal, on four posts dropping from
 their undersides (`pcb_hang` 4 mm, M2.5 self-tappers into `pcb_pilot` 2.2 mm).
@@ -61,7 +75,7 @@ Two things that buys:
 - **Out of the way of everything.** The board is centred at `pcb_cx` 34 /
   `pcb_cy` −11, so it spans x −4..72 and y −21..−1 — pulled back against the
   rear wall, leaving 23.5 mm clear in front for the eight BNC bulkhead bodies,
-  and well clear in x of the face LED at x −51. It lands at z 20, 3 mm above the
+  and well clear in x of the face LED at x −51. It lands at z 23, 6 mm above the
   z 17 centreline of the BNC and barrel jacks.
 
 > **`pcb_dx` (76) and `pcb_dy` (15) are still unverified.** `dx` carried over

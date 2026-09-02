@@ -131,7 +131,22 @@ ledge_w     = 2.5;   // how far the top lip reaches inward
 ledge_h     = 3;     // its thickness in Z
 beam_w      = 8;     // beam width along X
 beam_h      = 4;     // beam thickness in Z
-beam_inset  = 3;     // beam top face this far below the frame's top rim
+beam_inset  = 0;     // beam top face FLUSH with the frame's top rim.
+                     //
+                     // Flush, not recessed, so the frame can print UPSIDE DOWN
+                     // with no supports. Print the top rim on the plate and the
+                     // beams are part of the first layer, laid flat on glass;
+                     // the hanging posts then grow vertically off solid
+                     // material. Recessed by even a few millimetres, the beams
+                     // become 45mm unsupported bridges whichever way up the
+                     // part prints, and the post pilots — which have to hold an
+                     // M2.5 thread — would be forming off a bridged surface.
+                     //
+                     // The face plate seats on the corner posts, which end at
+                     // this same rim plane, so it now lands on the beams too.
+                     // That is more bearing surface, not less, but the beam
+                     // tops must be exactly coplanar with the rim: proud by
+                     // even one layer and the plate rocks.
 pcb_dx      = 76;    // post spacing along X (VERIFY against the real board!)
 pcb_dy      = 15;    // post spacing across Y (VERIFY!)
 pcb_cx      = 34;    // board center along X — right half, clear of the CONTROL
