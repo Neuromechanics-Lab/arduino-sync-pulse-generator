@@ -88,38 +88,29 @@
 #define TC_GAP_ZERO_MS        15    // bit gap meaning 0
 #define TC_GAP_ONE_MS         25    // bit gap meaning 1
 
-// ---- TRIG input / mode switch (PRE-Sync rear panel) ----
-// SPDT toggle picks FREE RUN (output starts at boot) or TRIG RUN (outputs
-// stay LOW until a rising edge arrives on the TRIG IN BNC — lets several
-// boxes start in sync from one master pulse). Wire the switch common to
-// MODE_SWITCH_PIN and the FREE-RUN throw to GND (internal pullup). TRIG IN:
-// BNC center -> ~1k series resistor -> TRIG_IN_PIN (internal pullup; an
-// idle master holding 0V arms it — the input must sit LOW for
-// TRIG_ARM_LOW_MS before a rising edge counts, so an unconnected jack can
-// never false-trigger). Both pins are excluded from the output set.
-#define TRIG_FEATURE        1
-#define TRIG_IN_PIN         2
-#define MODE_SWITCH_PIN     3
-// FREE RUN is the OPEN throw, not the closed one — deliberately, so the box
-// free-runs when nothing is wired to MODE_SWITCH_PIN.
+// ---- TRIG input / mode switch — DISABLED IN THIS BUILD ----
+// This is the FREE-RUN-ONLY variant: identical to sync_pulse_generator in
+// every other respect (same PRNG, same seed, same timecode frames, same run
+// counter, same serial commands), but with no trigger input and no mode
+// switch. Output begins at power-up and continues for as long as the board
+// is powered.
 //
-// The pin is INPUT_PULLUP, so an unwired or disconnected switch floats HIGH.
-// With the old value (1 = closed-to-GND means FREE RUN) that read as TRIG RUN:
-// the outputs were held LOW waiting for a trigger that never came, and a box
-// with no switch fitted — or one whose wire came loose mid-session — sat
-// silent with no indication anything was wrong. Silence is the worst failure
-// this device has, because it is only discovered later, in analysis, when
-// nothing aligns.
+// Why a separate build rather than just leaving the switch in FREE RUN:
+//   * Nothing to set wrong. A box that can only free-run cannot be found
+//     mid-session sitting in TRIG mode waiting for an edge that never comes.
+//   * Two more output pins. TRIG_IN_PIN and MODE_SWITCH_PIN are excluded from
+//     the output set in the full firmware; here they carry the signal like
+//     any other pin.
+//   * No panel hardware required. A build with no TRIG BNC and no toggle can
+//     run this without leaving unread inputs floating.
 //
-// Inverted, an unwired pin reads FREE RUN and the box emits. A switch that
-// fails open now fails into working.
+// The emitted waveform is byte-identical to the full firmware in FREE RUN, so
+// recordings made with either are interchangeable and align against the same
+// template.
 //
-// WIRING: connect the switch so its FREE RUN throw leaves the pin OPEN and its
-// TRIG RUN throw closes to GND. On a panel already legended for the old
-// convention, rotate the toggle 180 degrees — the label then reads correctly
-// again with no change to the wiring itself.
-#define MODE_FREE_IS_LOW    0   // open throw = FREE RUN (see above)
-#define TRIG_ARM_LOW_MS     20
+// To re-enable triggering, use ../sync_pulse_generator instead. Do not simply
+// flip this back to 1 — the pin definitions below are gone.
+#define TRIG_FEATURE        0
 
 // EEPROM address of the persistent 16-bit run counter (separate from the
 // config block so 'save' never touches it; wraps at 65535).
