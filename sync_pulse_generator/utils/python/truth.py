@@ -198,6 +198,143 @@ class TruthReport:
                 f"{self.jitter_sd_ms:.2f} ms jitter after correction")
 
 
+# One PRE-Sync duration quantum. The generator can only emit multiples of
+# this, so it is the natural unit for timing error: a recorder inside +/-0.5
+# units can never be assigned to the wrong tick, whatever the millisecond
+# figure happens to be.
+STEP_MS = 5.0
+
+# A transition off by more than this many quanta is not jitter — it is a
+# single corrupted timestamp, and averaging it into a standard deviation
+# misrepresents the recorder. One sample 28 ms out took a stream's apparent
+# jitter from 0.53 ms to 2.44 ms; the other 142 were fine.
+GROSS_UNITS = 3.0
+
+# Consecutive missing transitions that count as an outage rather than
+# scattered misses. An outage is ONE event however long, and is not a timing
+# property: a 7.7 s stall and steady low-grade loss are different faults
+# needing different responses.
+OUTAGE_RUN = 3
+OUTAGE_GAP_S = 2.0
+
+
+def classify(edge_times, both_edges=True, **kw):
+    """Separate the four things that go wrong, so none can hide inside another.
+
+    Returns a dict with, kept strictly apart:
+
+      jitter      spread of the well-behaved transitions, in ms AND in
+                  PRE-Sync quanta. This is the recorder's real precision.
+      gross       individual transitions off by more than GROSS_UNITS. Counted
+                  and listed, never averaged into jitter.
+      outages     runs of consecutive missing transitions — the stream
+                  stopped. Reported as events with start, end and duration.
+      isolated    single missing transitions with intact neighbours.
+
+    Why bother: a 7.7 s stall, four scattered bad timestamps, and genuine
+    link noise all appear as "jitter" and "% lost" if lumped together, and
+    the same recording then reports anywhere from 0.5 ms to 2.6 ms depending
+    on how it was sliced. Separated, each number is stable and points at a
+    different fix.
+    """
+    r = score(edge_times, both_edges=both_edges, **kw)
+    if not r.locked:
+        return {"locked": False, "note": r.note}
+
+    T = _template(both_edges, kw.get("seed", SEED), kw.get("hours", SEARCH_HOURS))
+    pred = np.asarray(edge_times, float) - r._lock_off
+    pred.sort()
+    tr = T[(T >= pred[0]) & (T <= pred[-1])]
+    t0 = tr[0]
+
+    matched, errs, lost = [], [], []
+    for x in tr:
+        j = int(np.argmin(np.abs(pred - x)))
+        if abs(pred[j] - x) < MATCH_WINDOW_S:
+            matched.append(x - t0)
+            errs.append((pred[j] - x) * 1000)
+        else:
+            lost.append(x - t0)
+    matched = np.asarray(matched); errs = np.asarray(errs)
+    lost = np.asarray(lost)
+
+    slope, icept = np.polyfit(matched, errs / 1000, 1)
+    res = (errs / 1000 - (slope * matched + icept)) * 1000
+
+    # Outages: runs of consecutive losses.
+    outages, isolated = [], []
+    if len(lost):
+        grp = [[lost[0]]]
+        for x in lost[1:]:
+            if x - grp[-1][-1] <= OUTAGE_GAP_S:
+                grp[-1].append(x)
+            else:
+                grp.append([x])
+        for g in grp:
+            if len(g) >= OUTAGE_RUN:
+                outages.append({"start_s": float(g[0]), "end_s": float(g[-1]),
+                                "duration_s": float(g[-1] - g[0]),
+                                "n_missed": len(g)})
+            else:
+                isolated += [float(x) for x in g]
+
+    gross_m = np.abs(res) > GROSS_UNITS * STEP_MS
+    clean = res[~gross_m]
+
+    return {
+        "locked": True,
+        "n_emitted": len(tr), "n_captured": len(matched),
+        "offset_ms": float(icept * 1000),
+        "drift_ppm": float(slope * 1e6),
+        "jitter_sd_ms": float(clean.std()),
+        "jitter_max_ms": float(np.abs(clean).max()) if len(clean) else float("nan"),
+        "jitter_sd_units": float(clean.std() / STEP_MS),
+        "jitter_max_units": float(np.abs(clean).max() / STEP_MS) if len(clean) else float("nan"),
+        "within_half_unit_pct": float(100 * np.mean(np.abs(clean) < STEP_MS / 2)),
+        "n_gross": int(gross_m.sum()),
+        "gross_at_s": [float(t) for t in matched[gross_m]],
+        "gross_ms": [float(v) for v in res[gross_m]],
+        "outages": outages,
+        "n_outage_missed": int(sum(o["n_missed"] for o in outages)),
+        "outage_s": float(sum(o["duration_s"] for o in outages)),
+        "n_isolated": len(isolated),
+        "isolated_at_s": isolated,
+    }
+
+
+def report(c, name=""):
+    """Print a classify() result."""
+    if not c.get("locked"):
+        print(f"{name}: NOT LOCATED — {c.get('note','')}"); return
+    lost = c["n_emitted"] - c["n_captured"]
+    print(f"\n{name}")
+    print(f"  captured        {c['n_captured']}/{c['n_emitted']} "
+          f"({100*c['n_captured']/c['n_emitted']:.1f}%)")
+    print(f"  offset          {c['offset_ms']:+.2f} ms          (constant — correctable)")
+    print(f"  drift           {c['drift_ppm']:+.0f} ppm "
+          f"({c['drift_ppm']*60/1000:+.2f} ms/min)  (correctable)")
+    print(f"  JITTER          sd {c['jitter_sd_ms']:.2f} ms = {c['jitter_sd_units']:.3f} quanta, "
+          f"max {c['jitter_max_units']:.2f} quanta")
+    print(f"                  {c['within_half_unit_pct']:.1f}% land within half a quantum "
+          f"(= on the correct 5 ms tick)")
+    if c["n_gross"]:
+        print(f"  GROSS ERRORS    {c['n_gross']} transition(s) off by >{GROSS_UNITS:.0f} quanta: "
+              + ", ".join(f"{t:.1f}s ({v:+.0f} ms)"
+                          for t, v in zip(c['gross_at_s'], c['gross_ms']))[:90])
+        print(f"                  excluded from jitter — these are corrupt timestamps, "
+              f"not spread")
+    if c["outages"]:
+        print(f"  OUTAGES         {len(c['outages'])} event(s), "
+              f"{c['outage_s']:.1f}s total, {c['n_outage_missed']} transitions:")
+        for o in c["outages"]:
+            print(f"                    {o['start_s']:.1f}-{o['end_s']:.1f}s "
+                  f"({o['duration_s']:.1f}s, {o['n_missed']} missed)")
+    if c["n_isolated"]:
+        print(f"  ISOLATED MISSES {c['n_isolated']}")
+    if not c["outages"] and not c["n_gross"] and c["n_isolated"] <= 2:
+        print(f"  -> clean: timing good to {c['jitter_sd_units']:.2f} quanta, no structural loss")
+
+
 def _template(both_edges=True, seed=SEED, hours=SEARCH_HOURS):
     times, levels = tc.generate_template(
         seed=seed, duration_s=hours * 3600,
