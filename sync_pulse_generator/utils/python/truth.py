@@ -121,6 +121,21 @@ class TruthReport:
     jitter_max_ms: float = float("nan")
     raw_sd_ms: float = float("nan")    # before correcting offset and drift
 
+    # Timing measured on transitions FAR from any loss. A dropout does not
+    # only remove its own transition: the ones on either side of a gap are
+    # the most likely to be mistimed, and including them attributes the
+    # dropout's damage to the recorder's timing. Separating the two is what
+    # distinguishes "loses data but times the rest perfectly" from "times
+    # everything poorly" — on real data one stream went 2.44 -> 0.46 ms when
+    # its dropout-adjacent transitions were excluded, while another barely
+    # moved (2.49 -> 2.58), which is the difference between an intermittent
+    # interruption and a genuinely noisy link.
+    clean_n: int = 0
+    clean_jitter_sd_ms: float = float("nan")
+    clean_jitter_max_ms: float = float("nan")
+    clean_offset_ms: float = float("nan")
+    clean_drift_ppm: float = float("nan")
+
     span_s: float = float("nan")
     _fit: tuple = (0.0, 0.0)           # (drift slope, offset) in truth time
     _t0: float = 0.0                   # truth-time origin the fit is about
@@ -148,8 +163,20 @@ class TruthReport:
               f"  JITTER    sd {self.jitter_sd_ms:.2f} ms, p95 "
               f"{self.jitter_p95_ms:.2f}, max {self.jitter_max_ms:.2f}"
               f"   (irreducible — this is the precision floor)",
-              f"            uncorrected residual was sd {self.raw_sd_ms:.2f} ms",
-              "",
+              f"            uncorrected residual was sd {self.raw_sd_ms:.2f} ms"]
+        if self.clean_n and np.isfinite(self.clean_jitter_sd_ms):
+            worse = self.jitter_sd_ms / max(self.clean_jitter_sd_ms, 1e-9)
+            L += [f"",
+                  f"  AWAY FROM LOSSES ({self.clean_n} transitions clear of any gap)",
+                  f"            offset {self.clean_offset_ms:+.2f} ms, drift "
+                  f"{self.clean_drift_ppm:+.1f} ppm, jitter sd "
+                  f"{self.clean_jitter_sd_ms:.2f} ms, max "
+                  f"{self.clean_jitter_max_ms:.2f} ms",
+                  f"            {'the dropouts account for most of the apparent jitter'
+                                 if worse > 2 else
+                                 'jitter is spread through the recording, not just at gaps'}"
+                  f" ({self.jitter_sd_ms:.2f} -> {self.clean_jitter_sd_ms:.2f} ms)"]
+        L += ["",
               f"  VERDICT   {self.verdict}"]
         return "\n".join(L)
 
@@ -216,13 +243,15 @@ def _locate(e, T, chunk=CHUNK, ratio_tol=RATIO_TOL, match_s=MATCH_WINDOW_S):
 
 
 def score(edge_times, both_edges=True, seed=SEED, hours=SEARCH_HOURS,
-          match_s=MATCH_WINDOW_S, upto_s=None) -> TruthReport:
+          match_s=MATCH_WINDOW_S, upto_s=None, guard_s=1.0) -> TruthReport:
     """Judge one recording against the emitted waveform.
 
     both_edges: False for a trigger line that logs only rising transitions.
     upto_s:     analyse only the first N seconds — useful for characterising
                 timing on a clean stretch before any loss begins, since a
                 dropout inflates every statistic computed across it.
+    guard_s:    transitions within this of a lost one are excluded from the
+                "clean" statistics reported alongside the overall ones.
     """
     r = TruthReport()
     e = np.sort(np.asarray(edge_times, float).ravel())
@@ -290,6 +319,24 @@ def score(edge_times, both_edges=True, seed=SEED, hours=SEARCH_HOURS,
     r._lock_off = float(off)
     r._fit = (float(slope), float(intercept))
     r._t0 = float(tt[0])
+
+    # Re-measure using only transitions well clear of any loss.
+    if lost:
+        lost_t = np.asarray(lost) + truth[0]
+        far = np.array([np.min(np.abs(lost_t - t)) > guard_s for t in tt])
+    else:
+        far = np.ones(len(tt), bool)
+    if far.sum() >= 5:
+        ct, cr = tt[far], rec[far]
+        cs, ci = np.polyfit(ct - ct[0], cr - ct, 1)
+        cj = ((cr - ct) - (cs * (ct - ct[0]) + ci)) * 1000
+        r.clean_n = int(far.sum())
+        r.clean_offset_ms = float(ci * 1000)
+        r.clean_drift_ppm = float(cs * 1e6)
+        r.clean_jitter_sd_ms = float(cj.std())
+        r.clean_jitter_max_ms = float(np.abs(cj).max())
+    else:
+        r.clean_n = int(far.sum())
     return r
 
 
