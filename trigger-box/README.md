@@ -17,9 +17,7 @@ end with countersunk M3 self-tappers into the posts), and the **lid**
   Level control per device, if needed, is an inline attenuator pod (idea
   logged, not built).
 - **Rear:** `TRIG IN` BNC + SPDT mode toggle (`FREE RUN ⟷ TRIG RUN`, arrow
-  from TRIG RUN to the IN jack) under a `CONTROL` caption; 4 PCB posts on
-  the wall interior for the full uncut 80 × 20 proto board (M2.5
-  self-tappers; pcb_dx = 76 / pcb_dz = 15 — VERIFY with calipers).
+  from TRIG RUN to the IN jack) under a `CONTROL` caption.
 - **Left end:** `PWR` barrel jack, centered.
 - **Right end:** 10-32 thread-forming ground/tether screw, dead center —
   self-taps through the wall into the copper foil inside (the shield's single
@@ -35,6 +33,42 @@ end with countersunk M3 self-tappers into the posts), and the **lid**
 
 **All lettering is inset** (0.8 mm deboss; walls in Futura Medium 4.6 mm with light stroke fattening
 so the grooves print smooth).
+
+## Top bracing and PCB mount
+
+The bottom edge is closed by the lid and both ends by the face and lid screws,
+but the top opening had nothing holding its long edges apart — 168 mm of
+unsupported wall that could bow. Two things fix that:
+
+- **A ledge** (`ledge_w` 2.5 mm × `ledge_h` 3 mm) runs the inside of the top
+  rim, turning the free edge into a flange. A flange resists bending far better
+  than the same mass added as wall thickness. It stops short of the corner posts
+  so the face plate still seats on the posts.
+- **Two cross beams** (`beam_w` 8 mm × `beam_h` 4 mm) span the short way, wall to
+  wall, at the PCB post spacing. They close the load path between the long
+  walls, so the walls can no longer splay.
+
+**The board hangs from the beams**, horizontal, on four posts dropping from
+their undersides (`pcb_hang` 4 mm, M2.5 self-tappers into `pcb_pilot` 2.2 mm).
+This replaces the earlier scheme, where four posts stood off the rear wall and
+the board mounted vertically on their ends.
+
+Two things that buys:
+
+- **Serviceable from both faces.** Take the logo face off (top) to reach the
+  beams and the component side; take the lid off (bottom) to reach the solder
+  side.
+- **Out of the way of everything.** The board is centred at `pcb_cx` 34 /
+  `pcb_cy` −11, so it spans x −4..72 and y −21..−1 — pulled back against the
+  rear wall, leaving 23.5 mm clear in front for the eight BNC bulkhead bodies,
+  and well clear in x of the face LED at x −51. It lands at z 20, 3 mm above the
+  z 17 centreline of the BNC and barrel jacks.
+
+> **`pcb_dx` (76) and `pcb_dy` (15) are still unverified.** `dx` carried over
+> from the vertical scheme; `dy` is a guess at the hole spacing across the
+> board's 20 mm dimension. Measure the real board before printing — four posts
+> at the wrong pitch line up with nothing. Check them on `trigger-hole_test`
+> along with the connector diameters.
 
 ## Printing
 

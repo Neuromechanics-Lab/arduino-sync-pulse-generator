@@ -107,16 +107,56 @@ gnd_d      = 4.3;   // 10-32 thread-forming bite in 3mm PLA (major dia 4.8)
 gnd_y      = 0;
 gnd_zp     = 18.5;  // mid-height of the assembled box (lid on)
 
-// ---- PCB posts: rear (CONTROL) wall, right half -----------------------------
-// Four posts protrude horizontally from the wall interior; the FULL uncut
-// 80 x 20 proto board mounts VERTICALLY on their ends (M2.5 self-tappers).
-pcb_cx     = 34;    // post group center — board spans ~-6..74
-pcb_dx     = 76;    // corner hole spacing along the wall (VERIFY!)
-pcb_dz     = 15;    // corner hole spacing vertically (VERIFY!)
-pcb_cz     = 17;    // group center height = connector height
-pcb_post_d = 5.5;
-pcb_post_len = 6;   // board face floats 6mm off the wall interior
-pcb_pilot  = 2.2;   // M2.5 self-tappers into the post ends
+// ---- Top brace beams + hanging PCB mount ------------------------------------
+// REPLACES the previous scheme, in which four posts stood off the rear wall
+// interior and the board mounted VERTICALLY on their ends. That left the top
+// edge of the frame unsupported over its full 168mm span (the bottom is braced
+// by the lid, the ends by the face and lid, but the long top edge had nothing),
+// and it made the board reachable from one side only.
+//
+// Two beams now span the SHORT way (across Y) near the top, tying the two long
+// walls together where they were weakest. Mounting posts drop DOWNWARD from
+// the beams and the board hangs beneath them, horizontal. Consequences:
+//   * the long walls can no longer splay — the beams are a closed load path
+//     from one side to the other;
+//   * the board is serviceable from BOTH faces: remove the face (top) to reach
+//     the beams and the component side, remove the lid (bottom) to reach the
+//     solder side;
+//   * panel jacks sit at z=17 and the board hangs above them, so wiring runs
+//     upward and is not trapped between the board and a wall.
+//
+// The beams sit below the frame's top rim so the face plate still seats on the
+// corner posts, not on the beams.
+ledge_w     = 2.5;   // how far the top lip reaches inward
+ledge_h     = 3;     // its thickness in Z
+beam_w      = 8;     // beam width along X
+beam_h      = 4;     // beam thickness in Z
+beam_inset  = 3;     // beam top face this far below the frame's top rim
+pcb_dx      = 76;    // post spacing along X (VERIFY against the real board!)
+pcb_dy      = 15;    // post spacing across Y (VERIFY!)
+pcb_cx      = 34;    // board center along X — right half, clear of the CONTROL
+                     // group on the left and well clear of the face LED, which
+                     // sits at x = -51 (the logo's soma).
+pcb_cy      = -11;   // board center across Y — pulled BACK toward the rear wall.
+                     // The board is 20mm deep, so it spans y = -21 .. -1,
+                     // leaving the front third of the cavity (y = -1 .. +22.5)
+                     // clear for the eight BNC bulkheads, whose bodies and nuts
+                     // protrude inward from the front wall. Sitting centered
+                     // would have put the board directly behind them.
+pcb_hang    = 4;     // post length below the beam underside.
+                     // Sets the board's height: with beam_inset 3 and beam_h 4
+                     // the board lands at z = 20, which is 3mm clear above the
+                     // z=17 centreline of the BNC and barrel bulkheads. At the
+                     // original 8mm it sat at z=16, level with those jacks —
+                     // no collision, since the board stops at y=-1 and the
+                     // jacks come in from the front and left, but no vertical
+                     // margin either, and the barrel jack protrudes inward at
+                     // exactly that height.
+pcb_post_d  = 5.5;
+pcb_pilot   = 2.2;   // M2.5 self-tappers into the post ends
+
+// Beam centers land on the post rows so each post is directly supported.
+function beam_x(sx) = pcb_cx + sx*pcb_dx/2;
 
 // ---- Lid keyhole mounts -----------------------------------------------------
 key_x      = 45;    // two pads at ±key_x, centered in y
@@ -202,13 +242,40 @@ module frame_model() {
         rrect(inner.x, inner.y, max(rad - wall, 0.5));
       }
       screw_posts(inner, wall, pilot_both = true);
-      // PCB posts off the rear wall interior (flared root for strength)
-      for (sx = [-1, 1], sz = [-1, 1])
-        translate([pcb_cx + sx*pcb_dx/2, -inner.y/2, pcb_cz + sz*pcb_dz/2])
-          rotate([-90, 0, 0]) {
-            cylinder(d1 = pcb_post_d + 3, d2 = pcb_post_d, h = 2);
-            cylinder(d = pcb_post_d, h = pcb_post_len);
-          }
+
+      // ---- stiffening ledge around the top opening ------------------------
+      // A continuous lip running the inside of the top rim. The bottom edge is
+      // closed by the lid and the ends by the face and lid screws, but the top
+      // opening had nothing holding its long edges apart, so the 168mm walls
+      // could bow. The ledge turns that free edge into a flange, which resists
+      // bending far better than added wall thickness would for the same mass.
+      // It stops short of the corner posts so the face plate still lands on
+      // the posts.
+      translate([0, 0, wall + inner.z - ledge_h])
+        linear_extrude(ledge_h) difference() {
+          rrect(inner.x, inner.y, max(rad - wall, 0.5));
+          rrect(inner.x - 2*ledge_w, inner.y - 2*ledge_w, max(rad - wall - ledge_w, 0.5));
+        }
+
+      // ---- two cross beams + hanging PCB posts -----------------------------
+      // Beams span the SHORT way (across Y), wall to wall, tying the long walls
+      // together. Posts drop from their undersides; the board hangs beneath.
+      for (sx = [-1, 1]) {
+        translate([beam_x(sx) - beam_w/2,
+                   -inner.y/2,
+                   wall + inner.z - beam_inset - beam_h])
+          cube([beam_w, inner.y, beam_h]);
+
+        for (sy = [-1, 1])
+          translate([beam_x(sx), pcb_cy + sy*pcb_dy/2,
+                     wall + inner.z - beam_inset - beam_h - pcb_hang])
+            union() {
+              cylinder(d = pcb_post_d, h = pcb_hang);
+              // flared root where the post meets the beam
+              translate([0, 0, pcb_hang - 2])
+                cylinder(d1 = pcb_post_d, d2 = pcb_post_d + 3, h = 2);
+            }
+      }
     }
     // ---- front: 8 BNC outputs, numbered under each (deployed z≈6) ----------
     for (i = [0 : n_out - 1]) {
@@ -241,10 +308,11 @@ module frame_model() {
     translate([inner.x/2 + wall, gnd_y, gnd_zp])
       rotate([0, 90, 0]) translate([0, 0, -wall - 0.01])
         round_cutout(wall + 0.02, gnd_d);
-    // pilots into the PCB post ends
-    for (sx = [-1, 1], sz = [-1, 1])
-      translate([pcb_cx + sx*pcb_dx/2, -inner.y/2 + pcb_post_len - 5, pcb_cz + sz*pcb_dz/2])
-        rotate([-90, 0, 0]) cylinder(d = pcb_pilot, h = 5.51);
+    // pilots up into the hanging post ends (drilled from below)
+    for (sx = [-1, 1], sy = [-1, 1])
+      translate([beam_x(sx), pcb_cy + sy*pcb_dy/2,
+                 wall + inner.z - beam_inset - beam_h - pcb_hang - 0.01])
+        cylinder(d = pcb_pilot, h = 5.5);
   }
 }
 
