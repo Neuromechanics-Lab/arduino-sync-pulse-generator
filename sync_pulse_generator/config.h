@@ -125,10 +125,41 @@
 // config block so 'save' never touches it; wraps at 65535).
 #define EEPROM_RUNID_ADDR   64
 
+// ---- Trigger behaviour (runtime-settable; these are only the defaults) ----
+// What TRIG IN does, as a mode rather than a fixed behaviour, so one firmware
+// serves several experimental designs and a host app can set it over serial
+// without recompiling.
+//
+//   TRIG_EDGE_START  a rising edge starts a run; further edges are ignored
+//                    until the mode switch is cycled. The original behaviour.
+//   TRIG_EDGE_TOGGLE a rising edge starts a run, the NEXT edge stops it, and
+//                    so on — trial start/stop from one line.
+//   TRIG_LEVEL_GATE  output runs while TRIG IN is HIGH and stops when it goes
+//                    LOW. The run clock restarts on each rising edge, so every
+//                    gated segment is its own run with its own ID.
+#define TRIG_MODE_EDGE_START   0
+#define TRIG_MODE_EDGE_TOGGLE  1
+#define TRIG_MODE_LEVEL_GATE   2
+#define DEFAULT_TRIG_MODE      TRIG_MODE_EDGE_START
+
+// ---- Lead-in marker pulse (runtime-settable) --------------------------------
+// On a trigger, optionally emit ONE clean pulse, hold LOW for a fixed pause,
+// and only then begin the pseudo-random train. A single unambiguous flash is
+// far easier to find in video than a pseudo-random train is — a camera
+// recording an LED can be aligned off that one event without decoding
+// anything.
+//
+// The run clock starts at the LEADING EDGE OF THAT PULSE, so embedded
+// timecode stays referenced to the trigger instant. The pause is a known
+// constant, so analysis can place the train relative to the marker exactly.
+#define DEFAULT_LEADIN_PULSE_ENABLED 0    // 1 = emit the marker pulse
+#define DEFAULT_LEADIN_PULSE_MS      50   // marker pulse width
+#define DEFAULT_LEADIN_PAUSE_MS      500  // LOW hold before the train starts
+
 // ---- EEPROM ----
 // Magic byte to detect if EEPROM has valid saved config.
 // Change this value to force a reset to defaults on next boot.
-// (0xA7 -> 0xA8 when the timecode fields were added to the layout.)
-#define EEPROM_MAGIC  0xA8
+// (0xA7 -> 0xA8 timecode fields; 0xA8 -> 0xA9 trigger mode + lead-in marker.)
+#define EEPROM_MAGIC  0xA9
 
 #endif

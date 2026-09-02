@@ -51,6 +51,10 @@ unsigned long maxLowMs;
 unsigned long prngSeed;
 bool tcEnabled;
 unsigned long tcIntervalS;
+uint8_t  trigMode_cfg;          // TRIG_MODE_* — what TRIG IN does
+bool     leadinPulseEnabled;    // emit a marker pulse on trigger
+unsigned long leadinPulseMs;    // its width
+unsigned long leadinPauseMs;    // LOW hold after it, before the train
 
 // ---- State ----
 bool outputState = LOW;
@@ -60,7 +64,7 @@ bool running = true;
 // Timecode frame state. A frame is 55 pulses / 54 gaps = 109 alternating
 // segments (even = pulse HIGH, odd = gap LOW). Segments 1,3 are preamble
 // gaps; odd segments 5..107 carry the 52 payload bits MSB-first.
-enum RunMode { MODE_PR, MODE_LEADIN, MODE_FRAME };
+enum RunMode { MODE_PR, MODE_LEADIN, MODE_FRAME, MODE_MARK, MODE_MARKPAUSE };
 RunMode mode = MODE_PR;
 bool leadinPending = false;   // current PR segment was clamped at the lead-in start
 uint8_t  frameSeg = 0;
@@ -80,6 +84,10 @@ struct EepromData {
   uint32_t seed;
   uint8_t  tcEnabled;
   uint32_t tcIntervalS;
+  uint8_t  trigMode;
+  uint8_t  leadinEnabled;
+  uint32_t leadinPulseMs;
+  uint32_t leadinPauseMs;
 };
 
 void loadDefaults() {
@@ -90,6 +98,10 @@ void loadDefaults() {
   prngSeed    = DEFAULT_PRNG_SEED;
   tcEnabled   = DEFAULT_TC_ENABLED;
   tcIntervalS = DEFAULT_TC_INTERVAL_S;
+  trigMode_cfg       = DEFAULT_TRIG_MODE;
+  leadinPulseEnabled = DEFAULT_LEADIN_PULSE_ENABLED;
+  leadinPulseMs      = DEFAULT_LEADIN_PULSE_MS;
+  leadinPauseMs      = DEFAULT_LEADIN_PAUSE_MS;
 }
 
 bool loadFromEeprom() {
@@ -103,6 +115,10 @@ bool loadFromEeprom() {
   prngSeed    = data.seed;
   tcEnabled   = data.tcEnabled != 0;
   tcIntervalS = data.tcIntervalS;
+  trigMode_cfg       = data.trigMode;
+  leadinPulseEnabled = data.leadinEnabled != 0;
+  leadinPulseMs      = data.leadinPulseMs;
+  leadinPauseMs      = data.leadinPauseMs;
   return true;
 }
 
@@ -116,6 +132,10 @@ void saveToEeprom() {
   data.seed        = prngSeed;
   data.tcEnabled   = tcEnabled ? 1 : 0;
   data.tcIntervalS = tcIntervalS;
+  data.trigMode      = trigMode_cfg;
+  data.leadinEnabled = leadinPulseEnabled ? 1 : 0;
+  data.leadinPulseMs = leadinPulseMs;
+  data.leadinPauseMs = leadinPauseMs;
   EEPROM.put(0, data);
 }
 
@@ -276,6 +296,18 @@ void printConfig() {
                  ? (MODE_FREE_IS_LOW ? F("FREE RUN") : F("TRIG RUN"))
                  : (MODE_FREE_IS_LOW ? F("TRIG RUN") : F("FREE RUN")));
 #endif
+  Serial.print(F("  TrigMode: "));
+  Serial.println(trigMode_cfg == TRIG_MODE_EDGE_START  ? F("start")
+               : trigMode_cfg == TRIG_MODE_EDGE_TOGGLE ? F("toggle")
+                                                       : F("gate"));
+  Serial.print(F("  Marker:   "));
+  if (leadinPulseEnabled) {
+    Serial.print(F("ON, ")); Serial.print(leadinPulseMs);
+    Serial.print(F(" ms pulse + ")); Serial.print(leadinPauseMs);
+    Serial.println(F(" ms pause"));
+  } else {
+    Serial.println(F("OFF"));
+  }
   Serial.print(F("  Running:  ")); Serial.println(running ? "YES" : "NO");
   Serial.println(F("==================================="));
 }
@@ -287,6 +319,9 @@ void printHelp() {
   Serial.println(F("  seed <value>      - Set PRNG seed & restart"));
   Serial.println(F("  tc on|off         - Timecode frames on/off"));
   Serial.println(F("  tcint <seconds>   - Seconds between timecode frames"));
+  Serial.println(F("  trigmode <m>      - start|toggle|gate"));
+  Serial.println(F("  mark on|off       - lead-in marker pulse on trigger"));
+  Serial.println(F("  markms <p> <g>    - marker pulse ms, then pause ms"));
   Serial.println(F("  save              - Save settings to EEPROM"));
   Serial.println(F("  reset             - Reset to config.h defaults"));
   Serial.println(F("  start             - Start output"));
@@ -370,6 +405,50 @@ void processCommand(const char* cmd) {
       Serial.println(F(" s"));
     } else {
       Serial.println(F("Usage: tcint <seconds>  (2 or more)"));
+    }
+  }
+  else if (strcmp(token, "trigmode") == 0) {
+    char* sVal = strtok(NULL, " ");
+    int m = -1;
+    if (sVal) {
+      if      (strcmp(sVal, "start")  == 0) m = TRIG_MODE_EDGE_START;
+      else if (strcmp(sVal, "toggle") == 0) m = TRIG_MODE_EDGE_TOGGLE;
+      else if (strcmp(sVal, "gate")   == 0) m = TRIG_MODE_LEVEL_GATE;
+      else if (sVal[0] >= '0' && sVal[0] <= '2') m = sVal[0] - '0';
+    }
+    if (m >= 0) {
+      trigMode_cfg = (uint8_t)m;
+      Serial.print(F("Trigger mode: "));
+      Serial.println(m == TRIG_MODE_EDGE_START  ? F("start (edge starts; later edges ignored)")
+                   : m == TRIG_MODE_EDGE_TOGGLE ? F("toggle (edge starts, next edge stops)")
+                                                : F("gate (runs while TRIG IN is HIGH)"));
+    } else {
+      Serial.println(F("Usage: trigmode start|toggle|gate"));
+    }
+  }
+  else if (strcmp(token, "mark") == 0) {
+    char* sVal = strtok(NULL, " ");
+    if (sVal && (strcmp(sVal, "on") == 0 || strcmp(sVal, "off") == 0)) {
+      leadinPulseEnabled = (strcmp(sVal, "on") == 0);
+      Serial.print(F("Lead-in marker pulse: "));
+      Serial.println(leadinPulseEnabled ? F("ON") : F("OFF"));
+    } else {
+      Serial.println(F("Usage: mark on|off"));
+    }
+  }
+  else if (strcmp(token, "markms") == 0) {
+    char* sPulse = strtok(NULL, " ");
+    char* sPause = strtok(NULL, " ");
+    if (sPulse && sPause && atol(sPulse) > 0 && atol(sPause) >= 0) {
+      leadinPulseMs = atol(sPulse);
+      leadinPauseMs = atol(sPause);
+      Serial.print(F("Marker: "));
+      Serial.print(leadinPulseMs);
+      Serial.print(F(" ms pulse, "));
+      Serial.print(leadinPauseMs);
+      Serial.println(F(" ms pause"));
+    } else {
+      Serial.println(F("Usage: markms <pulse_ms> <pause_ms>"));
     }
   }
   else if (strcmp(token, "save") == 0) {
@@ -461,6 +540,27 @@ void setup() {
 #if TRIG_FEATURE
 bool trigMode = false;
 unsigned long trigLowSince = 0;
+bool trigWasHigh = false;   // edge detect: previous TRIG IN level
+
+// Start a run, optionally prefixed by the lead-in marker pulse.
+//
+// With the marker enabled the sequence is: one clean pulse of leadinPulseMs,
+// then LOW for leadinPauseMs, then the pseudo-random train. A single
+// unambiguous flash is far easier to find in video than a pseudo-random train
+// is, so a camera watching an LED can be aligned off that one event without
+// decoding anything.
+//
+// The run clock starts at the LEADING EDGE of the marker, not after the pause,
+// so embedded timecode stays referenced to the trigger instant. The pause is a
+// known constant, so analysis places the train relative to the marker exactly.
+void startRunMaybeMarked() {
+  startNewRun();                       // resets the clock, bumps the run ID
+  if (leadinPulseEnabled) {
+    mode = MODE_MARK;
+    setOutput(HIGH);
+    nextToggleTime = millis() + leadinPulseMs;
+  }
+}
 
 void serviceTrigger() {
   bool swLow = digitalRead(MODE_SWITCH_PIN) == LOW;
@@ -471,24 +571,54 @@ void serviceTrigger() {
       running = false;
       setOutput(LOW);
       trigLowSince = 0;
+      trigWasHigh = digitalRead(TRIG_IN_PIN) != LOW;
       Serial.println(F("TRIG mode: outputs held LOW, waiting for TRIG IN"));
     } else {
-      startNewRun();
+      startRunMaybeMarked();
       Serial.println(F("FREE RUN mode: started"));
     }
   }
-  if (trigMode && !running) {
-    if (digitalRead(TRIG_IN_PIN) == LOW) {
-      if (trigLowSince == 0) trigLowSince = millis();
-    } else {
-      if (trigLowSince != 0 &&
-          millis() - trigLowSince >= TRIG_ARM_LOW_MS) {
-        startNewRun();
-        Serial.println(F("Triggered!"));
-      }
-      trigLowSince = 0;
+  if (!trigMode) return;
+
+  bool level = digitalRead(TRIG_IN_PIN) != LOW;
+
+  if (trigMode_cfg == TRIG_MODE_LEVEL_GATE) {
+    // Output runs while TRIG IN is HIGH. Each rising edge starts a fresh run,
+    // so every gated segment carries its own run ID and its own elapsed clock
+    // — which is what lets the analysis tell one gated segment from another.
+    if (level && !running) {
+      startRunMaybeMarked();
+      Serial.println(F("Gate HIGH: running"));
+    } else if (!level && running) {
+      running = false;
+      setOutput(LOW);
+      Serial.println(F("Gate LOW: stopped"));
     }
+    trigWasHigh = level;
+    return;
   }
+
+  // Edge modes. The line must sit LOW for TRIG_ARM_LOW_MS before a rising
+  // edge counts, so an unconnected jack cannot false-trigger.
+  if (!level) {
+    if (trigLowSince == 0) trigLowSince = millis();
+  } else {
+    bool armed = trigLowSince != 0 &&
+                 (millis() - trigLowSince) >= TRIG_ARM_LOW_MS;
+    if (armed && !trigWasHigh) {
+      if (!running) {
+        startRunMaybeMarked();
+        Serial.println(F("Triggered!"));
+      } else if (trigMode_cfg == TRIG_MODE_EDGE_TOGGLE) {
+        running = false;
+        setOutput(LOW);
+        Serial.println(F("Triggered: stopped"));
+      }
+      // TRIG_MODE_EDGE_START while running: ignore, as before.
+    }
+    trigLowSince = 0;
+  }
+  trigWasHigh = level;
 }
 #endif
 
@@ -510,7 +640,19 @@ void loop() {
   }
 
   if (running && millis() >= nextToggleTime) {
-    if (mode == MODE_FRAME) {
+    if (mode == MODE_MARK) {
+      // Marker pulse just ended: hold LOW for the configured pause. The run
+      // clock is already running from the marker's leading edge, so timecode
+      // stays referenced to the trigger instant, not to the end of the pause.
+      mode = MODE_MARKPAUSE;
+      setOutput(LOW);
+      nextToggleTime = millis() + leadinPauseMs;
+    } else if (mode == MODE_MARKPAUSE) {
+      // Pause over: begin the pseudo-random train.
+      mode = MODE_PR;
+      setOutput(HIGH);
+      schedulePrSegment();
+    } else if (mode == MODE_FRAME) {
       // advance through the frame's 109 alternating segments
       frameSeg++;
       if (frameSeg > 108) {
