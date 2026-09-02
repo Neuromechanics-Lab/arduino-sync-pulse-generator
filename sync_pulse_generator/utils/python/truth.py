@@ -335,7 +335,17 @@ def report(c, name=""):
         print(f"  -> clean: timing good to {c['jitter_sd_units']:.2f} quanta, no structural loss")
 
 
+_TEMPLATE_CACHE = {}
+
+
 def _template(both_edges=True, seed=SEED, hours=SEARCH_HOURS):
+    # Cached: the template depends only on (seed, duration, polarity) and is
+    # identical for every stream in a session. Regenerating six hours of it
+    # per stream cost 1.5 s each and dominated the runtime — eight streams
+    # spent more time rebuilding the same array than analysing the data.
+    key = (bool(both_edges), seed, hours)
+    if key in _TEMPLATE_CACHE:
+        return _TEMPLATE_CACHE[key]
     times, levels = tc.generate_template(
         seed=seed, duration_s=hours * 3600,
         min_high=MIN_HIGH_MS, max_high=MAX_HIGH_MS,
@@ -345,6 +355,7 @@ def _template(both_edges=True, seed=SEED, hours=SEARCH_HOURS):
     if not both_edges:
         # A trigger line records one polarity only.
         T = T[np.asarray(levels, int) == 1]
+    _TEMPLATE_CACHE[key] = T
     return T
 
 
@@ -362,20 +373,61 @@ def _locate(e, T, chunk=CHUNK, ratio_tol=RATIO_TOL, match_s=MATCH_WINDOW_S):
         return None
     W = np.lib.stride_tricks.sliding_window_view(TI, chunk)
 
+    # COARSE THEN FINE.
+    #
+    # Six hours of template is ~78,000 windows, and comparing every probe
+    # window against all of them is 25 million comparisons per stream — 8.7 s
+    # of Python loop, which made eight streams take over a minute.
+    #
+    # A single probe window is enough to find the neighbourhood: the sequence
+    # is pseudo-random, so a matching 8-interval run is already almost unique.
+    # So use ONE probe to narrow the template to a small region, then run the
+    # full multi-probe vote only inside it. Three earlier attempts at this
+    # (striding the probes, caching the template, deduplicating candidates)
+    # each made it slower, because they trimmed the cheap part and left the
+    # 25-million-comparison loop intact.
+    def _score(off):
+        pred = e - off
+        k = np.clip(np.searchsorted(T, pred), 1, len(T) - 1)
+        d = np.minimum(np.abs(T[k] - pred), np.abs(T[k - 1] - pred))
+        return int((d < match_s).sum())
+
+    probe0 = iv[:chunk]
+    rel0 = np.max(np.abs(W - probe0) / np.maximum(probe0, 1e-3), axis=1)
+    seeds = np.flatnonzero(rel0 < ratio_tol)
+    if not len(seeds):
+        # Opening window is damaged; fall back to scanning a few probes.
+        for r0 in range(0, min(len(iv) - chunk + 1, 40)):
+            p = iv[r0:r0 + chunk]
+            rel = np.max(np.abs(W - p) / np.maximum(p, 1e-3), axis=1)
+            hit = np.flatnonzero(rel < ratio_tol)
+            if len(hit):
+                seeds = hit - r0 + 0            # express as index of probe 0
+                seeds = seeds[seeds >= 0]
+                break
+    if not len(seeds):
+        return None
+
     best = None
-    for r0 in range(len(iv) - chunk + 1):
-        p = iv[r0:r0 + chunk]
-        rel = np.max(np.abs(W - p) / np.maximum(p, 1e-3), axis=1)
-        for j in np.flatnonzero(rel < ratio_tol):
-            off = e[r0] - T[j]
-            pred = e - off
-            k = np.clip(np.searchsorted(T, pred), 1, len(T) - 1)
-            d = np.minimum(np.abs(T[k] - pred), np.abs(T[k - 1] - pred))
-            hit = int((d < match_s).sum())
-            if best is None or hit > best[0]:
-                best = (hit, off)
+    for j0 in seeds[:200]:
+        off = e[0] - T[j0]
+        hit = _score(off)
+        if best is None or hit > best[0]:
+            best = (hit, off)
     if best is None:
         return None
+
+    # Refine: re-anchor on the edge nearest the middle of the recording, which
+    # is less sensitive to a damaged start or end than the first edge is.
+    mid = len(e) // 2
+    pred = e - best[1]
+    j = int(np.clip(np.searchsorted(T, pred[mid]), 1, len(T) - 1))
+    for jj in (j - 1, j, j + 1):
+        if 0 <= jj < len(T):
+            off = e[mid] - T[jj]
+            hit = _score(off)
+            if hit > best[0]:
+                best = (hit, off)
     return best[1], best[0] / len(e)
 
 

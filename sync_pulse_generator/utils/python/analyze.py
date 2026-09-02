@@ -361,8 +361,24 @@ def _compare(results):
     ok = [r for r in results if r.ok]
     if len(ok) < 2:
         return []
-    base = min(ok, key=lambda r: r.cls["jitter_sd_units"])
-    out = [f"  reference: {base.stream.name} (lowest jitter)"]
+
+    # Reference = the SOUNDEST stream, not merely the one with the smallest
+    # jitter number. A stream with an outage can post excellent jitter on the
+    # fragments it did capture and then be chosen as the yardstick every other
+    # stream is judged against, which is backwards. Rank on completeness and
+    # on-tick fraction first; jitter only breaks ties.
+    def _quality(r):
+        c = r.cls
+        return (len(c["outages"]),
+                c["n_gross"],
+                -c["within_half_unit_pct"],
+                -100 * c["n_captured"] / max(c["n_emitted"], 1),
+                c["jitter_sd_units"])
+    base = min(ok, key=_quality)
+    why = ("no outages, " if not base.cls["outages"] else "")
+    out = [f"  reference: {base.stream.name} "
+           f"({why}{base.cls['within_half_unit_pct']:.1f}% on-tick, "
+           f"{base.cls['jitter_sd_units']:.3f} quanta)"]
     for r in ok:
         if r is base:
             continue
