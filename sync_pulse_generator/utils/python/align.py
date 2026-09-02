@@ -372,6 +372,177 @@ def _pr_intervals(edges: np.ndarray):
 
 
 # ---------------------------------------------------------------------------
+# Finding where a recording sits in a free-running generator's output
+# ---------------------------------------------------------------------------
+
+def find_start(edge_times, seed=SEED, search_hours=6.0, chunk=12,
+               tol_ms=None, both_edges=True, tc_enabled=None,
+               tc_interval_s=TC_INTERVAL_S):
+    """Where in the generator's run does this recording begin?
+
+    THE GENERATOR IS USUALLY ALREADY RUNNING when a recording starts. A box
+    left free-running for the morning is at some arbitrary point deep in its
+    sequence by the time anyone presses record, and the next recording that
+    afternoon is deeper still. Nothing about the recording says where.
+
+    Assuming a recording starts at template t=0 therefore fails on real data
+    while looking like a configuration mismatch: searching only the first
+    minute of the sequence, a genuine seed-42 recording that began 18 minutes
+    in reports "no seed matches" and invites the wrong conclusion. Two real
+    recordings from one continuous run were located at 17.9 min and 41.1 min.
+
+    So: generate hours of template and vote across EVERY window of the
+    recording, not just the first. Each window proposes an index shift; the
+    true one is proposed by every clean window, and a corrupted stretch is
+    outvoted rather than deciding the answer. On a wireless recording whose
+    first windows were damaged, a single-window lock failed outright while
+    voting found the position with 112 of 132 windows agreeing.
+
+    Returns (template_time_s, votes, total_windows, template) or None.
+    """
+    e = np.sort(np.asarray(edge_times, float).ravel())
+    if len(e) < chunk + 2:
+        return None
+
+    # Try WITHOUT timecode frames as well as with, unless told which.
+    #
+    # A recording made on the simple bench firmware carries no frames, and a
+    # template that has them is ~4x denser in edges — 8532 against 2163 over
+    # ten minutes — so a window of the recording matches nothing anywhere in
+    # it. Defaulting to frames-on silently reported "no lock" on data that
+    # locks perfectly frames-off, which is indistinguishable from a bad
+    # recording unless you already suspected the firmware.
+    modes = [tc_enabled] if tc_enabled is not None else [False, True]
+
+    # Escalate the interval tolerance rather than fixing it.
+    #
+    # A tolerance tuned for one recorder is wrong for another. An analog
+    # channel sampling both edges lands within ~1 ms of the template, but a
+    # trigger line logging rises only carries a few ms of timestamp jitter on
+    # top of intervals twice as long. A fixed 3 ms threshold locked the analog
+    # stream 108/108 while reporting NO LOCK for the trigger stream in the
+    # same file — which reads as a dead recording rather than as a threshold
+    # that was too tight. At 10 ms that same stream locks 23/73, at the very
+    # position the analog stream found independently.
+    #
+    # So try tight first and loosen only if nothing is found: a lock at 3 ms
+    # is more trustworthy than one at 20 ms, but a weak lock beats none.
+    tolerances = [tol_ms] if tol_ms is not None else [3.0, 6.0, 10.0, 20.0]
+
+    iv = np.diff(e) * 1000.0
+    best = None
+    for mode in modes:
+        times, levels = tc.generate_template(
+            seed=seed, duration_s=search_hours * 3600,
+            min_high=MIN_HIGH_MS, max_high=MAX_HIGH_MS,
+            min_low=MIN_LOW_MS, max_low=MAX_LOW_MS,
+            tc_enabled=mode, tc_interval_s=tc_interval_s, run_id=1)
+        T = np.asarray(times, float) / 1000.0
+        if not both_edges:
+            # A trigger line logs one polarity only, so compare against the
+            # template's rises alone.
+            T = T[np.asarray(levels, int) == 1]
+
+        TI = np.diff(T) * 1000.0
+        if len(TI) < chunk:
+            continue
+        W = np.lib.stride_tricks.sliding_window_view(TI, chunk)
+
+        # Precompute nearest-template-window distance once per mode.
+        dist = np.empty(len(iv) - chunk + 1)
+        shift_of = np.empty(len(iv) - chunk + 1, dtype=int)
+        for r0 in range(len(iv) - chunk + 1):
+            d = np.max(np.abs(W - iv[r0:r0 + chunk]), axis=1)
+            j = int(np.argmin(d))
+            dist[r0] = d[j]
+            shift_of[r0] = j - r0
+
+        for tol in tolerances:
+            votes = {}
+            for r0 in np.flatnonzero(dist < tol):
+                k = int(shift_of[r0])
+                votes[k] = votes.get(k, 0) + 1
+            if not votes:
+                continue
+            shift = max(votes, key=votes.get)
+            cand = (float(T[shift]) if 0 <= shift < len(T) else float("nan"),
+                    votes[shift], len(iv) - chunk + 1, T, float(tol))
+            if best is None or cand[1] > best[1]:
+                best = cand
+            break        # this mode locked; do not loosen further
+    return best[:4] + (best[4],) if best else None
+
+
+def score_against_truth(edge_times, seed=SEED, search_hours=6.0,
+                        both_edges=True, match_window_s=0.060,
+                        anchor_at_s=None, **kw):
+    """Judge ONE recording against the waveform the generator actually emitted.
+
+    This is the strongest check available, and it needs no second recording:
+    the template IS the truth, so a stream can be scored on its own. That
+    matters because comparing two recordings to each other cannot say which
+    of them is at fault — and on real data both were.
+
+    Returns a dict with the lock position, how many true transitions the
+    recording captured, and its timing error against them.
+    """
+    # A degraded stream locks only weakly on its own, and scoring it from its
+    # own weak anchor compounds the error. When a cleaner stream from the same
+    # session has already established where in the run the recording sits,
+    # pass that position in: the generator was free-running, so every stream
+    # recorded at the same wall-clock moment shares it.
+    loc = find_start(edge_times, seed=seed, search_hours=search_hours,
+                     both_edges=both_edges, **kw)
+    if anchor_at_s is not None and loc is not None:
+        t_ignored, votes, total, T, tol_used = loc
+        loc = (float(anchor_at_s), votes, total, T, tol_used)
+    if loc is None:
+        return {"locked": False,
+                "note": ("could not locate this recording anywhere in "
+                         f"{search_hours:g} h of the generator's output. Either "
+                         "it is not this signal, or it is too degraded for a "
+                         "fingerprint to survive anywhere in it.")}
+    t_start, votes, total, T, tol_used = loc
+    e = np.sort(np.asarray(edge_times, float).ravel())
+
+    # Offset from the agreed shift, then score every true transition that
+    # falls inside the recording's own window.
+    i0 = int(np.argmin(np.abs(T - t_start)))
+    off = float(np.median([e[i] - T[i0 + i]
+                           for i in range(min(20, len(e), len(T) - i0))]))
+    lo, hi = e[0] - off, e[-1] - off
+    truth = T[(T >= lo) & (T <= hi)]
+
+    errs, missed = [], []
+    for tt in truth:
+        k = int(np.argmin(np.abs((e - off) - tt)))
+        d = ((e - off)[k] - tt) * 1000.0
+        if abs(d) <= match_window_s * 1000:
+            errs.append(d)
+        else:
+            missed.append(float(tt - T[i0]))
+    errs = np.asarray(errs)
+
+    n_true = len(truth)
+    return {
+        "locked": True,
+        "start_s": t_start,
+        "start_min": t_start / 60.0,
+        "lock_votes": votes, "lock_windows": total,
+        "lock_tol_ms": tol_used,
+        "n_true": n_true,
+        "n_matched": len(errs),
+        "n_missed": len(missed),
+        "missed_pct": 100.0 * len(missed) / max(n_true, 1),
+        "missed_at_s": missed,
+        "err_median_ms": float(np.median(np.abs(errs))) if len(errs) else float("nan"),
+        "err_p95_ms": float(np.percentile(np.abs(errs), 95)) if len(errs) else float("nan"),
+        "err_max_ms": float(np.abs(errs).max()) if len(errs) else float("nan"),
+        "offset_s": off,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Locking a recording to the template
 # ---------------------------------------------------------------------------
 

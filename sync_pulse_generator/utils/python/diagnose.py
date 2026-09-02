@@ -95,6 +95,13 @@ class Recording:
     nominal_rate: Optional[float] = None
     n_samples: Optional[int] = None
     sample_gaps: Optional[np.ndarray] = None   # inter-sample dt, if known
+    clock_offset: Optional[float] = None
+    # What the acquisition software CLAIMED the offset between this machine's
+    # clock and the recorder's was (LSL records one per stream). Never used to
+    # produce the alignment — the signal itself is ground truth — but reported
+    # alongside it, so a disagreement between the two is visible. A large
+    # disagreement is a finding about the clock synchronisation, not about the
+    # recording.
 
     def __post_init__(self):
         self.times = np.sort(np.asarray(self.times, float).ravel())
@@ -129,6 +136,19 @@ class PairReport:
     pair_a: np.ndarray = field(default_factory=lambda: np.empty(0))
     residual_ms: np.ndarray = field(default_factory=lambda: np.empty(0))
 
+    # Measured FROM THE SIGNAL, after removing each stream's declared clock
+    # offset. Positive = b's timestamps are later than a's for the same
+    # physical transition.
+    lag_ms: float = float("nan")
+    lag_sd_ms: float = float("nan")
+    lag_min_ms: float = float("nan")
+    lag_max_ms: float = float("nan")
+    lag_available: bool = False
+    # What the software's own clock correction would have predicted, and how
+    # far that is from what the signal shows.
+    declared_offset_s: float = float("nan")
+    declared_vs_measured_ms: float = float("nan")
+
     verdict: str = ""
     findings: list = field(default_factory=list)
 
@@ -156,8 +176,21 @@ class PairReport:
               f"  ({100*self.n_missing/max(self.n_a_in_overlap,1):.1f}%)",
               f"  extra in {self.b.name:<13} {self.n_extra}",
               f"  residual jitter      sd {self.jitter_sd_ms:.2f} ms   "
-              f"p95 {self.jitter_p95_ms:.2f} ms   max {self.jitter_max_ms:.2f} ms",
-              ""]
+              f"p95 {self.jitter_p95_ms:.2f} ms   max {self.jitter_max_ms:.2f} ms"]
+        if self.lag_available:
+            L.append(f"  LAG (from the signal) {self.b.name.split('::')[0][:16]} "
+                     f"lags {self.a.name.split('::')[0][:16]} by "
+                     f"{self.lag_ms:+.2f} ms")
+            L.append(f"                        sd {self.lag_sd_ms:.2f} ms, "
+                     f"range {self.lag_min_ms:+.2f} .. {self.lag_max_ms:+.2f} ms")
+            L.append(f"                        (both streams placed on the "
+                     f"recorder's clock using each one's declared offset;")
+            L.append(f"                         the lag above is what the "
+                     f"SIGNAL shows remains)")
+        else:
+            L.append("  LAG                   not recoverable — no declared clock "
+                     "offsets, so the two clocks share no common reference")
+        L.append("")
         L.append(f"  VERDICT: {self.verdict}")
         if self.findings:
             L.append("")
@@ -281,6 +314,38 @@ def diagnose_pair(a: Recording, b: Recording,
     rep.missing_times = [float(t - a.times[0]) for t in miss]
     rep.extra_times = [float((t - offset) / rate - a.times[0]) for t in extra]
 
+    # ---- lag, measured from the signal ------------------------------------
+    # The fit above is on each recording's OWN clock, so `offset` is dominated
+    # by when each machine happened to boot — on real LSL data that was
+    # -263499 s, which is not a delay. Removing each stream's declared clock
+    # offset puts both on the recorder's reference, and what remains is the
+    # actual difference in when the same physical transition was timestamped.
+    #
+    # The signal is the ground truth here. The declared offsets only supply
+    # the common reference; if they are wrong, the disagreement shows up in
+    # declared_vs_measured_ms rather than silently corrupting the answer.
+    if a.clock_offset is not None and b.clock_offset is not None:
+        ta = P[:, 0] + a.clock_offset
+        tb = P[:, 1] + b.clock_offset
+        lag = (tb - ta) * 1000
+        rep.lag_available = True
+        rep.lag_ms = float(np.median(lag))
+        rep.lag_sd_ms = float(lag.std())
+        rep.lag_min_ms = float(lag.min())
+        rep.lag_max_ms = float(lag.max())
+        rep.declared_offset_s = float(b.clock_offset - a.clock_offset)
+        # Cross-check: if the declared clock offsets were perfect AND there
+        # were no transport delay, the two streams would land on top of each
+        # other once corrected — i.e. the measured lag would be zero. So the
+        # measured lag IS the disagreement, and there is nothing further to
+        # subtract. Reporting a separate "difference" here previously mixed
+        # the uncorrected fit with the corrected one and produced nonsense
+        # (-7034 ms on a recording whose real lag is 8.5 ms).
+        #
+        # What is worth flagging is a lag too large to be transport: that
+        # points at the clock sync rather than the link.
+        rep.declared_vs_measured_ms = float("nan")
+
     resid = (P[:, 1] - (rate * P[:, 0] + offset)) * 1000
     rep.pair_a = P[:, 0] - a.times[0]
     rep.residual_ms = resid
@@ -335,6 +400,11 @@ def _judge(r: PairReport) -> None:
         f.append(f"Clocks differ by {r.drift_ppm:+.0f} ppm "
                  f"({r.drift_ppm*60/1000:+.2f} ms/min). A single constant offset "
                  f"will not hold across a long recording; apply the fitted rate.")
+
+    if r.lag_available and abs(r.lag_ms) > 250:
+        f.append(f"Measured lag is {r.lag_ms:+.0f} ms, larger than a transport "
+                 f"delay plausibly explains. Suspect the clock synchronisation "
+                 f"between the two machines rather than the link itself.")
 
     if r.jitter_sd_ms > 5:
         f.append(f"Residual jitter is {r.jitter_sd_ms:.1f} ms (sd) after fitting "
@@ -442,6 +512,113 @@ def print_chunks(chunks, label="chunk"):
 
 
 # ---------------------------------------------------------------------------
+# Checking a recording against the signal's own rules
+# ---------------------------------------------------------------------------
+
+# The generator's rules, from config.h. These hold whatever the seed is, so a
+# recording can be checked against them WITHOUT knowing which sequence was
+# emitted — which is the situation for anything recorded on the simple bench
+# firmware, or on a box whose settings were never written down.
+RULE_MIN_MS = 50
+RULE_MAX_MS = 500
+RULE_STEP_MS = 5
+
+
+@dataclass
+class FidelityReport:
+    """How faithfully one recording reproduced the signal's known structure."""
+    name: str
+    n_intervals: int = 0
+    grid_median_ms: float = float("nan")   # deviation from the 5 ms grid
+    grid_p95_ms: float = float("nan")
+    grid_max_ms: float = float("nan")
+    in_range_pct: float = float("nan")
+    out_of_spec: list = field(default_factory=list)
+    gaps: list = field(default_factory=list)   # (time, length_ms)
+    findings: list = field(default_factory=list)
+    verdict: str = ""
+
+    def __str__(self):
+        L=[f"  {self.name}",
+           f"    {self.n_intervals} intervals",
+           f"    off the {RULE_STEP_MS} ms grid by: median {self.grid_median_ms:.2f} ms, "
+           f"p95 {self.grid_p95_ms:.2f}, max {self.grid_max_ms:.2f}",
+           f"    within the {RULE_MIN_MS}-{RULE_MAX_MS} ms rule: {self.in_range_pct:.1f}%"]
+        for f_ in self.findings: L.append(f"    - {f_}")
+        L.append(f"    {self.verdict}")
+        return "\n".join(L)
+
+
+def check_fidelity(rec: "Recording",
+                   min_ms=RULE_MIN_MS, max_ms=RULE_MAX_MS,
+                   step_ms=RULE_STEP_MS, both_edges=True) -> FidelityReport:
+    """Score one recording against the signal's structural rules.
+
+    This does not need the seed, the run, or a template — only the invariants
+    the firmware guarantees: every level lasts between min_ms and max_ms, and
+    every duration is a whole number of step_ms. A recorder that reports a
+    237 ms interval got it wrong no matter what sequence was playing.
+
+    Two things it separates that a pairwise comparison cannot:
+
+      * TIMING FIDELITY — how far intervals sit off the quantisation grid.
+        This is the recorder's own timestamp accuracy, measured against
+        physics rather than against another recorder that may be equally bad.
+      * GAPS — intervals far longer than the maximum, meaning transitions
+        went unrecorded. Attributable to THIS recording, not to the pair.
+
+    `both_edges=False` when the recording captured only one polarity (a
+    trigger line logging rises only); intervals are then between successive
+    same-polarity transitions and the rule applies to their SUM, so the grid
+    check still holds but the range check does not.
+    """
+    r = FidelityReport(name=rec.name)
+    if len(rec.times) < 3:
+        r.verdict = "too few transitions to judge"
+        return r
+
+    iv = np.diff(rec.times) * 1000.0
+    r.n_intervals = len(iv)
+
+    # Distance to the nearest multiple of step_ms.
+    off = np.abs(((iv + step_ms/2) % step_ms) - step_ms/2)
+    r.grid_median_ms = float(np.median(off))
+    r.grid_p95_ms = float(np.percentile(off, 95))
+    r.grid_max_ms = float(off.max())
+
+    lo, hi = min_ms - step_ms, (max_ms if both_edges else 2*max_ms) + step_ms
+    ok = (iv >= lo) & (iv <= hi)
+    r.in_range_pct = float(100.0 * ok.mean())
+    bad = np.flatnonzero(~ok)
+    r.out_of_spec = [(float(rec.times[i] - rec.times[0]), float(iv[i]))
+                     for i in bad]
+    r.gaps = [(t, v) for t, v in r.out_of_spec if v > hi]
+
+    if r.grid_median_ms > step_ms / 4:
+        r.findings.append(
+            f"Intervals sit {r.grid_median_ms:.1f} ms off the {step_ms} ms grid "
+            f"on average. The generator can only emit multiples of {step_ms} ms, "
+            f"so this is the recorder's timestamp error, not the signal.")
+    for t, v in r.gaps:
+        r.findings.append(
+            f"{v/1000:.1f} s with no transition at t={t:.1f} s — far beyond the "
+            f"{max_ms} ms maximum, so transitions went unrecorded here.")
+    short = [(t, v) for t, v in r.out_of_spec if v < lo]
+    if short:
+        r.findings.append(
+            f"{len(short)} interval(s) shorter than {min_ms} ms — the generator "
+            f"cannot emit these. Suspect a double-triggered or bouncing input.")
+
+    if r.gaps:
+        r.verdict = "GAPS — this recording lost transitions"
+    elif r.grid_median_ms > step_ms / 4:
+        r.verdict = "POOR TIMING — intervals do not land on the generator's grid"
+    else:
+        r.verdict = "FAITHFUL — matches the signal's structure"
+    return r
+
+
+# ---------------------------------------------------------------------------
 # XDF / LSL loading
 # ---------------------------------------------------------------------------
 
@@ -479,7 +656,15 @@ def load_xdf_recordings(path: str, verbose: bool = False):
             lab = labels[c] if c < len(labels) else f"ch{c}"
             lo, hi = col.min(), col.max()
             mid = (lo + hi) / 2
-            rises = np.flatnonzero((col[1:] > mid) & (col[:-1] <= mid)) + 1
+            up = np.flatnonzero((col[1:] > mid) & (col[:-1] <= mid)) + 1
+            dn = np.flatnonzero((col[1:] <= mid) & (col[:-1] > mid)) + 1
+            # An analog channel carries the WHOLE wave, so take both edges:
+            # consecutive rises span a full high+low cycle and would routinely
+            # exceed the 500 ms maximum, making a faithful recording look
+            # broken. A trigger channel only ever pulses, so its rises are the
+            # events and its falls are the pulse ending.
+            is_trig = "trig" in lab.lower()
+            rises = up if is_trig else np.sort(np.concatenate([up, dn]))
             if len(rises) < 5:
                 continue
             # Prefer an explicitly named trigger, else the most square-like
@@ -494,11 +679,24 @@ def load_xdf_recordings(path: str, verbose: bool = False):
         _, c, lab, rise_t = best
         dt = np.diff(ts)
         kind = "trigger events" if "trig" in lab.lower() else "analog sync"
+        # LSL records, per stream, its measured offset to the recorder's
+        # clock. Captured but never applied to `times` — alignment is done
+        # from the signal, and this only supplies a common reference for
+        # turning that alignment into an absolute lag.
+        clk = None
+        try:
+            vals = [float(x["value"][0]) for x in
+                    s["footer"]["info"]["clock_offsets"][0]["offset"]]
+            if vals:
+                clk = float(np.median(vals))
+        except Exception:
+            pass
+
         out.append(Recording(
             name=f"{name}::{lab}", times=rise_t, kind=kind,
             stream_start=float(ts[0]), stream_end=float(ts[-1]),
             nominal_rate=float(info["nominal_srate"][0] or 0) or None,
-            n_samples=len(ts), sample_gaps=dt))
+            n_samples=len(ts), sample_gaps=dt, clock_offset=clk))
         if verbose:
             print(f"  found {name}::{lab}  {len(rise_t)} rising transitions")
     return out
@@ -620,6 +818,12 @@ def _cli(argv=None):
         for r in got:
             print(f"   {r.name}  {len(r.times)} transitions  {r.kind}")
         recs += got
+
+    print("\nFIDELITY vs the signal's own rules "
+          f"({RULE_MIN_MS}-{RULE_MAX_MS} ms, {RULE_STEP_MS} ms steps)")
+    print("  — each recording judged against the generator, not against the other —")
+    for r in recs:
+        print(check_fidelity(r, both_edges=(r.kind == "analog sync")))
 
     if len(recs) < 2:
         print("\nNeed at least two sync-bearing streams to compare.")
