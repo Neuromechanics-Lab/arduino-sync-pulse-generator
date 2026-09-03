@@ -1,82 +1,74 @@
 """
-presync - analysis toolkit for recordings carrying the PRE-Sync signal.
+presync - recover trustworthy timing from recordings of the PRE-Sync signal.
 
-The signal is deterministic, so the waveform that was on the wire can be
-regenerated exactly. That makes it GROUND TRUTH: every recording is judged
-against what the generator emitted, not against another recording — which
-matters because comparing two recordings cannot say which of them is at
-fault, and on real data both were.
+The generator emits a pseudo-random square wave whose every transition is
+determined by (seed, configuration). That makes the emitted waveform
+reproducible offline, so it can be regenerated and used as ground truth:
+each recorded edge has a known true time, and the difference is the
+recorder's error.
 
-STAGES, in the order they have to run. Each does one thing and each is
-callable on its own:
+The pipeline, in the order a full analysis runs them:
 
-    signal    regenerate the emitted waveform; decode timecode frames
-    detect    waveform or event stream  ->  transition times
-    locate    find where a recording sits in the generator's run
-    measure   offset, drift, jitter, gross errors, outages — kept separate
-    combine   place several recordings on one timeline; stitch or annotate
-    report    text and PDF
+    load -> locate -> score -> chunk -> judge -> compare -> report
 
-    run       all of the above, in order, from a file
+  load     recording file -> edge times (XDF, C3D, CSV)
+  locate   find where the recording sits in the generator's sequence
+  score    offset, drift, jitter, capture, loss -- against the template
+  chunk    per-window quality, on timecode frames where present
+  judge    turn the numbers into findings a person can act on
+  compare  streams against each other, once each is scored on its own
+  report   text and PDF
 
-    io        loaders (XDF, C3D, Nexus CSV)
-    emg       EMG processing — not sync analysis, but it travels with it
+One call runs all of it:
 
-Quick start:
+    presync.analyze_file("session.xdf")          # -> Analysis
+    python -m presync run session.xdf --pdf out.pdf
 
-    import presync
-    rep = presync.run("recording.xdf")
-    print(rep)
-    rep.to_pdf("report.pdf")
-
-or from the shell:
-
-    python -m presync run recording.xdf --pdf report.pdf
-    python -m presync locate recording.xdf
-    python -m presync measure recording.xdf
-
-WHY THE STAGES ARE SPLIT THIS WAY
-
-Each boundary is one that was crossed wrongly at least once while building
-this, and the errors were silent rather than loud:
-
-  * locate is separate from measure because the generator is usually ALREADY
-    RUNNING when recording starts. Two real recordings from one continuous
-    run sat 17.9 and 41.1 minutes in; code that assumed t=0 reported "no seed
-    matches" on a perfect file.
-
-  * measure reports four faults separately because lumping them made the same
-    recording read anywhere from 0.5 to 2.6 ms of "jitter" depending on how it
-    was sliced. Offset is correctable exactly; drift is correctable but
-    accumulates and is invisible to acquisition software; jitter is the
-    irreducible floor; outages and corrupt timestamps are not timing errors at
-    all.
-
-  * detect is separate from locate because a trigger line logging brief pulses
-    and an analog channel carrying the whole wave need different edge
-    extraction but the same downstream analysis.
+This package is an organisation of existing, verified code. The analysis
+functions live in the modules alongside it (truth, align, analyze, edge_sync,
+timecode, diagnose) and are re-exported here so there is one obvious entry
+point per stage rather than five overlapping ones.
 """
 
 __version__ = "1.0.0"
 
-from .signal import (
-    template, template_edges, decode_frames, split_runs,
-    SEED, STEP_MS, MIN_MS, MAX_MS,
-)
-from .detect import edges_from_waveform, edges_from_events
-from .locate import locate, Location
-from .measure import measure, Measurement, correct
-from .combine import combine, Combined
-from .report import Report, to_pdf
-from .runner import run, run_streams, Stream
+# ---- stage 1: load -----------------------------------------------------
+from analyze import Stream, load_xdf
+from edge_sync import (load_c3d_analog, detect_edges, edge_delay,
+                       sync_report, process_emg, shift_timestamps)
+
+# ---- stage 2: locate ---------------------------------------------------
+from timecode import (generate_template, decode_frames, align_to_timecode,
+                      split_runs, frame_durations, checksum4)
+from align import build_template, find_start, decode_source_frames
+
+# ---- stage 3: score ----------------------------------------------------
+from truth import (score, classify, correct, compare as compare_reports,
+                   report as truth_report, TruthReport,
+                   SEED, STEP_MS, SEARCH_HOURS)
+
+# ---- stages 4-6: chunk, judge, compare ---------------------------------
+from analyze import (analyze_streams, analyze_file, Analysis, StreamResult)
+
+# ---- alignment / resampling -------------------------------------------
+from align import (Source, Fit, AlignResult, lock_source, align_recordings,
+                   score_against_truth)
+
+# ---- pairwise diagnosis ------------------------------------------------
+from diagnose import Recording, PairReport, diagnose_pair
+
+from .runner import run
 
 __all__ = [
-    "template", "template_edges", "decode_frames", "split_runs",
-    "edges_from_waveform", "edges_from_events",
-    "locate", "Location",
-    "measure", "Measurement", "correct",
-    "combine", "Combined",
-    "Report", "to_pdf",
-    "run", "run_streams", "Stream",
-    "SEED", "STEP_MS", "MIN_MS", "MAX_MS",
+    "run", "analyze_file", "analyze_streams", "Analysis", "StreamResult",
+    "Stream", "load_xdf", "load_c3d_analog", "detect_edges", "edge_delay",
+    "sync_report", "process_emg", "shift_timestamps",
+    "generate_template", "decode_frames", "align_to_timecode", "split_runs",
+    "frame_durations", "checksum4", "build_template", "find_start",
+    "decode_source_frames",
+    "score", "classify", "correct", "compare_reports", "truth_report",
+    "TruthReport", "SEED", "STEP_MS", "SEARCH_HOURS",
+    "Source", "Fit", "AlignResult", "lock_source", "align_recordings",
+    "score_against_truth", "Recording", "PairReport", "diagnose_pair",
+    "__version__",
 ]
