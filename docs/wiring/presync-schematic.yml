@@ -1,0 +1,66 @@
+# PRE-Sync electrical schematic — netlist source.
+#
+# Regenerate with tools/gen_schematic.py
+#
+# The wiring diagram (presync-harness.yml) says which wire goes where
+# physically. This says what the circuit IS: the series resistors, the
+# pullups, and why each is there. Both are generated so neither drifts.
+
+title: PRE-Sync v1
+subtitle: Pseudo-random sync pulse generator
+
+nets:
+  - name: VCC
+    desc: 5 V from USB or regulated barrel input
+  - name: GND
+    desc: Common ground; chassis bonded at one point only
+
+blocks:
+  - id: U1
+    name: ATmega32U4
+    desc: Pro Micro / Leonardo
+    pins:
+      - {id: D0,  dir: out, net: OUT1}
+      - {id: D1,  dir: out, net: OUT2}
+      - {id: D4,  dir: out, net: OUT3}
+      - {id: D5,  dir: out, net: OUT4}
+      - {id: D6,  dir: out, net: OUT5}
+      - {id: D7,  dir: out, net: OUT6}
+      - {id: D8,  dir: out, net: OUT7}
+      - {id: D9,  dir: out, net: OUT8}
+      - {id: D2,  dir: in,  net: TRIG, note: INT1, pullup: internal}
+      - {id: D3,  dir: in,  net: MODE, note: INT0, pullup: internal}
+
+  - id: R1_8
+    name: R1-R8
+    desc: Series output resistors
+    note: >-
+      One per channel, in series with the driver pin. Limits fault current if
+      an output is shorted or driven by the far end, and damps reflections on
+      a long cable. Value set at build.
+
+  - id: R9
+    name: R9
+    desc: 1k series, TRIG IN
+    note: >-
+      Protects the input pin from an out-of-range master. The pin's internal
+      pullup holds the line HIGH when nothing is connected.
+
+  - id: SW1
+    name: SW1
+    desc: SPDT FREE/TRIG
+    note: >-
+      FREE RUN is the OPEN throw. With INPUT_PULLUP, an unwired or failed-open
+      switch reads HIGH = FREE RUN and the box emits. Fails into working.
+
+chains:
+  - [U1.D0, R1_8, "J1 centre"]
+  - [U1.D1, R1_8, "J2 centre"]
+  - [U1.D2, R1_8, "J3 centre"]
+  - [U1.D3, R1_8, "J4 centre"]
+  - [U1.D4, R1_8, "J5 centre"]
+  - [U1.D5, R1_8, "J6 centre"]
+  - [U1.D6, R1_8, "J7 centre"]
+  - [U1.D7, R1_8, "J8 centre"]
+  - ["J9 centre (TRIG IN)", R9, U1.D2]
+  - ["SW1 common", "", U1.D3]

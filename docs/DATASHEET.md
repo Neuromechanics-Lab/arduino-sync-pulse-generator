@@ -117,6 +117,7 @@ implementations (Python, MATLAB, R) in `sync_pulse_generator/utils/`.
 |---|---|
 | `docs/INTERFACE.md` | Pinout, levels, serial commands |
 | `docs/BOM.csv` | Bill of materials |
+| `docs/wiring/presync-schematic.svg` | Electrical schematic |
 | `docs/wiring/presync-harness.png` | Panel wiring |
 | `docs/TEST_PROCEDURE.md` | Acceptance tests |
 | `docs/api/` | Analysis toolkit API |

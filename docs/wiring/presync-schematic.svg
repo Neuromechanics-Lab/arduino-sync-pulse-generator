@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="760" viewBox="0 0 1320 760">
+<style>text{font-family:DejaVu Sans, Helvetica, Arial, sans-serif;}.t{font-size:19px;font-weight:600;}.s{font-size:12px;fill:#555;}.lbl{font-size:12px;}.pin{font-size:11px;fill:#333;}.note{font-size:10.5px;fill:#555;}.net{font-size:11px;fill:#0a6;font-weight:600;}line,path,rect,circle{stroke:#222;fill:none;stroke-width:1.4;}rect.box{fill:#fff;}</style>
+<rect x="0" y="0" width="1320" height="760" fill="#fff" stroke="none"/>
+<text class="t" x="24" y="34">PRE-Sync v1</text>
+<text class="s" x="24" y="54">Pseudo-random sync pulse generator &#183; electrical schematic (generated)</text>
+<rect class="box" x="60" y="96" width="190" height="430" rx="4"/>
+<text class="lbl" x="155.0" y="120" text-anchor="middle" font-weight="600">U1  ATmega32U4</text>
+<text class="pin" x="155.0" y="138" text-anchor="middle">Pro Micro / Leonardo</text>
+<text class="pin" x="240" y="170" text-anchor="end">D0</text>
+<line x1="250" y1="166" x2="470" y2="166"/>
+<rect class="box" x="470" y="157" width="52" height="18"/>
+<line x1="522" y1="166" x2="720" y2="166"/>
+<circle cx="734" cy="166" r="9"/>
+<circle cx="734" cy="166" r="2.5" fill="#222"/>
+<text class="pin" x="752" y="170">J1  OUT 1</text>
+<text class="pin" x="240" y="204" text-anchor="end">D1</text>
+<line x1="250" y1="200" x2="470" y2="200"/>
+<rect class="box" x="470" y="191" width="52" height="18"/>
+<line x1="522" y1="200" x2="720" y2="200"/>
+<circle cx="734" cy="200" r="9"/>
+<circle cx="734" cy="200" r="2.5" fill="#222"/>
+<text class="pin" x="752" y="204">J2  OUT 2</text>
+<text class="pin" x="240" y="238" text-anchor="end">D4</text>
+<line x1="250" y1="234" x2="470" y2="234"/>
+<rect class="box" x="470" y="225" width="52" height="18"/>
+<line x1="522" y1="234" x2="720" y2="234"/>
+<circle cx="734" cy="234" r="9"/>
+<circle cx="734" cy="234" r="2.5" fill="#222"/>
+<text class="pin" x="752" y="238">J3  OUT 3</text>
+<text class="pin" x="240" y="272" text-anchor="end">D5</text>
+<line x1="250" y1="268" x2="470" y2="268"/>
+<rect class="box" x="470" y="259" width="52" height="18"/>
+<line x1="522" y1="268" x2="720" y2="268"/>
+<circle cx="734" cy="268" r="9"/>
+<circle cx="734" cy="268" r="2.5" fill="#222"/>
+<text class="pin" x="752" y="272">J4  OUT 4</text>
+<text class="pin" x="240" y="306" text-anchor="end">D6</text>
+<line x1="250" y1="302" x2="470" y2="302"/>
+<rect class="box" x="470" y="293" width="52" height="18"/>
+<line x1="522" y1="302" x2="720" y2="302"/>
+<circle cx="734" cy="302" r="9"/>
+<circle cx="734" cy="302" r="2.5" fill="#222"/>
+<text class="pin" x="752" y="306">J5  OUT 5</text>
+<text class="pin" x="240" y="340" text-anchor="end">D7</text>
+<line x1="250" y1="336" x2="470" y2="336"/>
+<rect class="box" x="470" y="327" width="52" height="18"/>
+<line x1="522" y1="336" x2="720" y2="336"/>
+<circle cx="734" cy="336" r="9"/>
+<circle cx="734" cy="336" r="2.5" fill="#222"/>
+<text class="pin" x="752" y="340">J6  OUT 6</text>
+<text class="pin" x="240" y="374" text-anchor="end">D8</text>
+<line x1="250" y1="370" x2="470" y2="370"/>
+<rect class="box" x="470" y="361" width="52" height="18"/>
+<line x1="522" y1="370" x2="720" y2="370"/>
+<circle cx="734" cy="370" r="9"/>
+<circle cx="734" cy="370" r="2.5" fill="#222"/>
+<text class="pin" x="752" y="374">J7  OUT 7</text>
+<text class="pin" x="240" y="408" text-anchor="end">D9</text>
+<line x1="250" y1="404" x2="470" y2="404"/>
+<rect class="box" x="470" y="395" width="52" height="18"/>
+<line x1="522" y1="404" x2="720" y2="404"/>
+<circle cx="734" cy="404" r="9"/>
+<circle cx="734" cy="404" r="2.5" fill="#222"/>
+<text class="pin" x="752" y="408">J8  OUT 8</text>
+<text class="pin" x="496" y="150" text-anchor="middle">R1-R8</text>
+<text class="pin" x="240" y="464" text-anchor="end">D2</text>
+<line x1="250" y1="460" x2="470" y2="460"/>
+<rect class="box" x="470" y="451" width="52" height="18"/>
+<text class="pin" x="496" y="446" text-anchor="middle">R9 1k</text>
+<line x1="522" y1="460" x2="720" y2="460"/>
+<circle cx="734" cy="460" r="9"/>
+<circle cx="734" cy="460" r="2.5" fill="#222"/>
+<text class="pin" x="752" y="464">J9  TRIG IN</text>
+<line x1="290" y1="460" x2="290" y2="422"/>
+<text class="net" x="296" y="418">VCC (internal pullup)</text>
+<text class="pin" x="240" y="510" text-anchor="end">D3</text>
+<line x1="250" y1="506" x2="590" y2="506"/>
+<circle cx="596" cy="506" r="3" fill="#222"/>
+<line x1="596" y1="506" x2="648" y2="484"/>
+<circle cx="652" cy="482" r="3" fill="#fff"/>
+<text class="pin" x="662" y="485">FREE RUN (open)</text>
+<circle cx="652" cy="522" r="3" fill="#222"/>
+<line x1="652" y1="522" x2="652" y2="544"/>
+<text class="pin" x="662" y="525">TRIG RUN</text>
+<line x1="636" y1="544" x2="668" y2="544"/>
+<line x1="642" y1="548" x2="662" y2="548"/>
+<line x1="647" y1="552" x2="657" y2="552"/>
+<line x1="290" y1="506" x2="290" y2="476"/>
+<text class="net" x="296" y="473">VCC (internal pullup)</text>
+<text class="pin" x="596" y="562" text-anchor="middle">SW1</text>
+<text class="lbl" x="24" y="578" font-weight="600">Notes</text>
+<text class="pin" x="24" y="600" font-weight="600">R1-R8 &#8212; Series output resistors</text>
+<text class="note" x="24" y="616">One per channel, in series with the driver pin. Limits fault current if an output is shorted or driven by the far end, and damps</text>
+<text class="note" x="24" y="630">reflections on a long cable. Value set at build.</text>
+<text class="pin" x="24" y="650" font-weight="600">R9 &#8212; 1k series, TRIG IN</text>
+<text class="note" x="24" y="666">Protects the input pin from an out-of-range master. The pin's internal pullup holds the line HIGH when nothing is connected.</text>
+<text class="pin" x="24" y="686" font-weight="600">SW1 &#8212; SPDT FREE/TRIG</text>
+<text class="note" x="24" y="702">FREE RUN is the OPEN throw. With INPUT_PULLUP, an unwired or failed-open switch reads HIGH = FREE RUN and the box emits. Fails into</text>
+<text class="note" x="24" y="716">working.</text>
+<text class="note" x="1296" y="746" text-anchor="end">Generated from docs/wiring/presync-schematic.yml &#183; do not edit by hand</text>
+</svg>
