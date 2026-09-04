@@ -1,0 +1,202 @@
+# PRE-Sync panel harness — WireViz source.
+#
+# Regenerate the diagram with:
+#     tools/gen_wiring.sh
+#
+# Pin numbers are the Pro Micro variant (16 sync outputs, pins 2 and 3
+# reserved for the trigger path). Only the 8 panel-wired outputs appear
+# here; the remaining pins are unwired on this build.
+
+connectors:
+  MCU:
+    type: Pro Micro ATmega32U4
+    subtype: male header
+    notes: 5 V logic. USB is a separate peripheral and consumes no pins.
+    pinlabels:
+      - GND
+      - D0
+      - D1
+      - D4
+      - D5
+      - D6
+      - D7
+      - D8
+      - D9
+      - D10
+      - D2 TRIG IN
+      - D3 MODE SW
+      - VCC
+
+  OUT1:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+  OUT2:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+  OUT3:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+  OUT4:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+  OUT5:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+  OUT6:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+  OUT7:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+  OUT8:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+
+  TRIG:
+    type: BNC
+    subtype: bulkhead
+    pinlabels: [centre, shield]
+    notes: 1k series resistor in line. Input is INPUT_PULLUP.
+
+  MODE:
+    type: SPDT toggle
+    subtype: MTS-102
+    pinlabels: [FREE (open), common, TRIG (to GND)]
+    notes: >-
+      FREE RUN throw is the OPEN one. An unwired or failed-open switch then
+      reads FREE RUN and the box emits, rather than sitting silent waiting
+      for a trigger that never arrives.
+
+  PWR:
+    type: DC barrel
+    subtype: 5.5x2.1 panel
+    pinlabels: [+V, GND]
+
+  GNDLUG:
+    type: Ground screw
+    subtype: 10-32
+    pinlabels: [chassis]
+    notes: Single ground point. Copper foil interior lining contacts here.
+
+cables:
+  W_OUT:
+    wirecount: 8
+    gauge: 24 AWG
+    colors: [RD, OG, YE, GN, BU, VT, GY, WH]
+    notes: Each conductor passes through its own series resistor at the BNC.
+
+  W_GND:
+    wirecount: 8
+    gauge: 24 AWG
+    colors: [BK, BK, BK, BK, BK, BK, BK, BK]
+    notes: BNC shields to the common ground rail.
+
+  W_TRIG:
+    wirecount: 2
+    gauge: 24 AWG
+    colors: [BN, BK]
+
+  W_MODE:
+    wirecount: 2
+    gauge: 24 AWG
+    colors: [VT, BK]
+
+  W_PWR:
+    wirecount: 2
+    gauge: 22 AWG
+    colors: [RD, BK]
+
+  W_CHASSIS:
+    wirecount: 1
+    gauge: 22 AWG
+    colors: [GNYE]
+    notes: Single chassis bond. The foil lining contacts the screw threads.
+
+connections:
+  # Eight sync outputs: one driver pin and one wire each.
+  -
+    - MCU: [2]
+    - W_OUT: [1]
+    - OUT1: [1]
+  -
+    - MCU: [3]
+    - W_OUT: [2]
+    - OUT2: [1]
+  -
+    - MCU: [4]
+    - W_OUT: [3]
+    - OUT3: [1]
+  -
+    - MCU: [5]
+    - W_OUT: [4]
+    - OUT4: [1]
+  -
+    - MCU: [6]
+    - W_OUT: [5]
+    - OUT5: [1]
+  -
+    - MCU: [7]
+    - W_OUT: [6]
+    - OUT6: [1]
+  -
+    - MCU: [8]
+    - W_OUT: [7]
+    - OUT7: [1]
+  -
+    - MCU: [9]
+    - W_OUT: [8]
+    - OUT8: [1]
+
+  # BNC shields back to the common ground rail.
+  -
+    - OUT1: [2]
+    - W_GND: [1]
+    - MCU: [1]
+  -
+    - OUT2: [2]
+    - W_GND: [2]
+    - MCU: [1]
+  -
+    - OUT3: [2]
+    - W_GND: [3]
+    - MCU: [1]
+  -
+    - OUT4: [2]
+    - W_GND: [4]
+    - MCU: [1]
+  -
+    - OUT5: [2]
+    - W_GND: [5]
+    - MCU: [1]
+  -
+    - OUT6: [2]
+    - W_GND: [6]
+    - MCU: [1]
+  -
+    - OUT7: [2]
+    - W_GND: [7]
+    - MCU: [1]
+  -
+    - OUT8: [2]
+    - W_GND: [8]
+    - MCU: [1]
+
+  # Trigger input (1k series resistor in line at the jack).
+  -
+    - TRIG: [1]
+    - W_TRIG: [1]
+    - MCU: [11]
+  -
+    - TRIG: [2]
+    - W_TRIG: [2]
+    - MCU: [1]
+
+  # Mode switch: common to the pin, TRIG throw to ground.
+  -
+    - MODE: [2]
+    - W_MODE: [1]
+    - MCU: [12]
+  -
+    - MODE: [3]
+    - W_MODE: [2]
+    - MCU: [1]
+
+  # Power.
+  -
+    - PWR: [1]
+    - W_PWR: [1]
+    - MCU: [13]
+  -
+    - PWR: [2]
+    - W_PWR: [2]
+    - MCU: [1]
+
+  # Chassis bond: one point only, to avoid a ground loop.
+  -
+    - GNDLUG: [1]
+    - W_CHASSIS: [1]
+    - MCU: [1]

@@ -14,3 +14,6 @@ __pycache__/
 
 # OpenSCAD generated exports (regenerate with trigger-box/export-parts.sh)
 trigger-box/exports/
+
+# Docs toolchain venv
+.venv-docs/
