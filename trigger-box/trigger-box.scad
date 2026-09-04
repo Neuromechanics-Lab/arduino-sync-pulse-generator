@@ -125,13 +125,16 @@ gnd_zp     = 18.5;  // mid-height of the assembled box (lid on)
 //   * panel jacks sit at z=17 and the board hangs above them, so wiring runs
 //     upward and is not trapped between the board and a wall.
 //
-// The beams sit below the frame's top rim so the face plate still seats on the
-// corner posts, not on the beams.
+// ORIENTATION: the face plate is the TOP of the deployed box and the lid is the
+// BOTTOM (see lid_part). In model coordinates the face end is z=0, so the ledge
+// and beams are built there — at the top edge of the deployed box, which is the
+// edge that has nothing else closing it. The lid end needs no bracing: the lid
+// itself ties those walls together.
 ledge_w     = 2.5;   // how far the top lip reaches inward
 ledge_h     = 3;     // its thickness in Z
 beam_w      = 8;     // beam width along X
 beam_h      = 4;     // beam thickness in Z
-beam_inset  = 0;     // beam top face FLUSH with the frame's top rim.
+beam_inset  = 0;     // beam outer face FLUSH with the face-end rim.
                      //
                      // Flush, not recessed, so the frame can print UPSIDE DOWN
                      // with no supports. Print the top rim on the plate and the
@@ -259,14 +262,14 @@ module frame_model() {
       screw_posts(inner, wall, pilot_both = true);
 
       // ---- stiffening ledge around the top opening ------------------------
-      // A continuous lip running the inside of the top rim. The bottom edge is
-      // closed by the lid and the ends by the face and lid screws, but the top
-      // opening had nothing holding its long edges apart, so the 168mm walls
-      // could bow. The ledge turns that free edge into a flange, which resists
+      // A continuous lip running the inside of the face-end rim — the TOP of
+      // the deployed box. The bottom edge is closed by the lid and the ends by
+      // the face and lid screws, but the top opening had nothing holding its
+      // long edges apart, so the 168mm walls could bow. The ledge turns that free edge into a flange, which resists
       // bending far better than added wall thickness would for the same mass.
       // It stops short of the corner posts so the face plate still lands on
       // the posts.
-      translate([0, 0, wall + inner.z - ledge_h])
+      translate([0, 0, wall])
         linear_extrude(ledge_h) difference() {
           rrect(inner.x, inner.y, max(rad - wall, 0.5));
           rrect(inner.x - 2*ledge_w, inner.y - 2*ledge_w, max(rad - wall - ledge_w, 0.5));
@@ -274,21 +277,22 @@ module frame_model() {
 
       // ---- two cross beams + hanging PCB posts -----------------------------
       // Beams span the SHORT way (across Y), wall to wall, tying the long walls
-      // together. Posts drop from their undersides; the board hangs beneath.
+      // together at the top of the deployed box. Posts drop DOWNWARD from them
+      // (+z in model coordinates, since the face end is z=0) and the board
+      // hangs beneath, horizontal.
       for (sx = [-1, 1]) {
         translate([beam_x(sx) - beam_w/2,
                    -inner.y/2,
-                   wall + inner.z - beam_inset - beam_h])
+                   wall + beam_inset])
           cube([beam_w, inner.y, beam_h]);
 
         for (sy = [-1, 1])
           translate([beam_x(sx), pcb_cy + sy*pcb_dy/2,
-                     wall + inner.z - beam_inset - beam_h - pcb_hang])
+                     wall + beam_inset + beam_h])
             union() {
               cylinder(d = pcb_post_d, h = pcb_hang);
               // flared root where the post meets the beam
-              translate([0, 0, pcb_hang - 2])
-                cylinder(d1 = pcb_post_d, d2 = pcb_post_d + 3, h = 2);
+              cylinder(d1 = pcb_post_d + 3, d2 = pcb_post_d, h = 2);
             }
       }
     }
@@ -326,7 +330,7 @@ module frame_model() {
     // pilots up into the hanging post ends (drilled from below)
     for (sx = [-1, 1], sy = [-1, 1])
       translate([beam_x(sx), pcb_cy + sy*pcb_dy/2,
-                 wall + inner.z - beam_inset - beam_h - pcb_hang - 0.01])
+                 wall + beam_inset + beam_h + pcb_hang - 5.5 + 0.01])
         cylinder(d = pcb_pilot, h = 5.5);
   }
 }
