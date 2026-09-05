@@ -149,15 +149,19 @@
   // Right header, rows 4-11, top to bottom: A3 A2 A1 A0 | 15 14 16 10
   //   header A (rows 4-7)  = 21,20,19,18  all PORTF
   //   header B (rows 8-11) = 15,14,16,10  all PORTB
-  #define PANEL_PINS      {21, 20, 19, 18, 15, 14, 16, 10}
+  // BNC 2 was pin 20 (A2); moved to pin 9 after a hardware fault on that
+  // pin's connection. Pin 9 is PB5 -- same port as the other PORTB outputs
+  // and adjacent to pin 10 on the header, so the layout stays two port
+  // writes and the run on the right side stays contiguous.
+  #define PANEL_PINS      {21, 9, 19, 18, 15, 14, 16, 10}
   #define EVENT_CHANNEL_PIN 10       // BNC 8, the last panel position
   #define EVENT_PORTB_MASK  0x40     // PB6
-  #define OUT_PORTF_MASK    0xF0
+  #define OUT_PORTF_MASK    0xD0     // 21,19,18 (A3,A1,A0) -- A2 no longer used
   #define OUT_PORTD_MASK    0x00
   #if EVENT_CHANNEL_ENABLED
-    #define OUT_PORTB_MASK  0x0E     // 15,14,16 -- BNC 8 carries events
+    #define OUT_PORTB_MASK  0x2E     // 9,15,14,16 -- BNC 8 carries events
   #else
-    #define OUT_PORTB_MASK  0x4E     // 15,14,16,10 -- all eight are sync
+    #define OUT_PORTB_MASK  0x6E     // 9,15,14,16,10 -- all eight are sync
   #endif
 #else
   // PORTD: 0(D2) 1(D3) 4(D4) 6(D7) 12(D6)   PORTB: 8(B4) 10(B6) 11(B7)

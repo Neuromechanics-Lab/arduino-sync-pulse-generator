@@ -45,7 +45,7 @@ ISR drives them with two register writes (~0.13 µs) rather than eight
 
 | Header | Pins | Port |
 |---|---|---|
-| A | `21`, `20`, `19`, `18` | PORTF |
+| A | `21`, `9`, `19`, `18` | PORTF |
 | B | `15`, `14`, `16`, `10` | PORTB |
 
 > **A3–A0 are the JTAG pins** (PF4–PF7). The firmware clears JTD in
