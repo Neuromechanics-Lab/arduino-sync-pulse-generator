@@ -36,7 +36,13 @@ TC_PREAMBLE_GAP_MS = 10
 TC_GAP_ZERO_MS = 15
 TC_GAP_ONE_MS = 25
 TC_LEADIN_MS = 20                # forced LOW before each frame tick
-STEP_MS = 5                      # randomDuration granularity
+STEP_MS = 1                      # randomDuration granularity (config.h
+                                 # DURATION_STEP_MS). PROTOCOL 3: was 5 ms.
+                                 # Finer steps make the fingerprint far more
+                                 # unique -- 451 durations per draw instead of
+                                 # 91 -- without touching jitter measurement,
+                                 # which reads true edge times off the template
+                                 # exactly whatever the step is.
 
 
 def _xorshift32(state):

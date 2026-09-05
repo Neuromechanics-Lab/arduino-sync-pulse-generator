@@ -34,9 +34,13 @@
 // often recorded by devices that never see the serial port, the protocol
 // version is reported in the config AND is implicit in the timecode frame
 // layout itself.
-#define FW_VERSION        "1.1.0"
-#define PROTOCOL_VERSION  2      // 1 = pre-event-channel; 2 = adds the event
-                                 //     channel and its 8-bit marker payload
+#define FW_VERSION        "1.2.0"
+#define PROTOCOL_VERSION  3      // 1 = pre-event-channel
+                                 // 2 = adds the event channel and its 8-bit
+                                 //     marker payload
+                                 // 3 = DURATION_STEP_MS 5 -> 1. A decoder
+                                 //     built for 2 regenerates a different
+                                 //     waveform and will not lock.
 #define FW_DATE           __DATE__
 
 #ifdef BOARD_PRO_MICRO
@@ -82,6 +86,25 @@
 // LOW duration range: how long the signal stays at 0V
 #define DEFAULT_MIN_LOW_MS   50
 #define DEFAULT_MAX_LOW_MS   500
+
+// ---- Duration quantum ----
+// The step the pseudo-random durations are drawn on. The generator cannot
+// emit anything finer, so this is the resolution of the signal itself.
+//
+// 1 ms rather than 5 gives 451 distinct durations per draw instead of 91,
+// which is what the fingerprint search consumes: four intervals now span
+// 41 billion combinations instead of 68 million, so a short probe is unique
+// across days of signal and a dropout defeats the search far less often.
+//
+// It does NOT change jitter measurement. Jitter is the spread of
+// (recorded - true), and the true edge time comes from the template exactly,
+// whatever the step. What it does change is the "quanta" reporting figure and
+// the on-tick percentage, which are yardsticks rather than measurements: a
+// finer step makes them stricter, not the recorder worse.
+//
+// The reserved-gap rule is unaffected -- it depends on the 50 ms MINIMUM
+// duration versus the 30 ms longest frame interval, not on the step.
+#define DURATION_STEP_MS  1
 
 // ---- PRNG Seed ----
 // Fixed seed for reproducible patterns.

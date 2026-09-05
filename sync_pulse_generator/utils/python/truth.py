@@ -202,7 +202,7 @@ class TruthReport:
 # this, so it is the natural unit for timing error: a recorder inside +/-0.5
 # units can never be assigned to the wrong tick, whatever the millisecond
 # figure happens to be.
-STEP_MS = 5.0
+STEP_MS = 1.0   # config.h DURATION_STEP_MS (protocol 3; was 5.0)
 
 # A transition off by more than this many quanta is not jitter — it is a
 # single corrupted timestamp, and averaging it into a standard deviation

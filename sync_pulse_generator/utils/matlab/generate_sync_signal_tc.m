@@ -34,7 +34,7 @@ function [times_ms, levels] = generate_sync_signal_tc(duration_s, run_id, vararg
     o = p.Results;
     if nargin < 2 || isempty(run_id), run_id = 1; end
 
-    TC_PULSE = 5; TC_PRE_GAP = 10; TC_ZERO = 15; TC_ONE = 25; STEP = 5;
+    TC_PULSE = 5; TC_PRE_GAP = 10; TC_ZERO = 15; TC_ONE = 25; STEP = 1;   % config.h DURATION_STEP_MS (protocol 3; was 5)
 
     total_ms = duration_s * 1000;
     cap = ceil(duration_s * 60) + 4096;

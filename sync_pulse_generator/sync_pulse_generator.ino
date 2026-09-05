@@ -169,8 +169,8 @@ uint32_t prngNext() {
 
 unsigned long randomDuration(unsigned long minMs, unsigned long maxMs) {
   if (minMs >= maxMs) return minMs;
-  uint32_t steps = (maxMs - minMs) / 5 + 1;   // 5 ms increments
-  return minMs + (prngNext() % steps) * 5;
+  uint32_t steps = (maxMs - minMs) / DURATION_STEP_MS + 1;
+  return minMs + (prngNext() % steps) * DURATION_STEP_MS;
 }
 
 unsigned long computeNextDuration() {

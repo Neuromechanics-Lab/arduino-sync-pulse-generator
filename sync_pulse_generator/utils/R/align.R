@@ -42,7 +42,7 @@ TC_PULSE_MS_G  <- 5
 TC_PRE_GAP_G   <- 10
 TC_ZERO_G      <- 15
 TC_ONE_G       <- 25
-STEP_MS        <- 5
+STEP_MS        <- 1    # config.h DURATION_STEP_MS (protocol 3; was 5)
 
 # Intervals shorter than this belong to a timecode frame, not the
 # pseudo-random train, and are excluded from fingerprint matching.

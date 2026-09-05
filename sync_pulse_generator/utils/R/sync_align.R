@@ -16,6 +16,8 @@
 # ===========================================================================
 # R has no native uint32; we use doubles with manual 32-bit masking.
 
+STEP_MS <- 1   # config.h DURATION_STEP_MS (protocol 3; was 5)
+
 xorshift32_new <- function(seed = 42) {
   if (seed == 0) seed <- 1
   env <- new.env(parent = emptyenv())
@@ -45,9 +47,9 @@ xorshift32_next <- function(prng) {
 
 random_duration <- function(prng, min_ms, max_ms) {
   if (min_ms >= max_ms) return(min_ms)
-  steps <- (max_ms - min_ms) / 5 + 1   # 5 ms increments
+  steps <- (max_ms - min_ms) / STEP_MS + 1
   rval <- xorshift32_next(prng)
-  min_ms + (rval %% steps) * 5
+  min_ms + (rval %% steps) * STEP_MS
 }
 
 
