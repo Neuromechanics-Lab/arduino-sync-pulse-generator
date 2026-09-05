@@ -8,6 +8,7 @@
 | [wiring/presync-schematic.svg](wiring/presync-schematic.svg) | Electrical schematic | **generated** from `presync-schematic.yml` |
 | [wiring/presync-harness.png](wiring/presync-harness.png) | Panel harness diagram | **generated** from `presync-harness.yml` |
 | [TEST_PROCEDURE.md](TEST_PROCEDURE.md) | Acceptance tests for a built unit | hand-written |
+| [ACCESSORIES.md](ACCESSORIES.md) | Fan-out pod, LED converter | hand-written |
 | [api/](api/) | Python analysis toolkit reference | **generated** from docstrings |
 
 ## Regenerating

@@ -29,16 +29,16 @@ Regenerate with `python3 tools/gen_interface_doc.py` after changing
 
 Two board variants. Select Pro Micro with `-DBOARD_PRO_MICRO`.
 
-| Board | Total GPIO | Sync outputs | Reserved inputs |
-|---|---|---|---|
-| Arduino Leonardo (default) | 20 | 18 | 2, 3 |
-| Pro Micro ATmega32U4 | 18 | 16 | 2, 3 |
+| Board | Total GPIO | Sync outputs | Event channel | Reserved inputs |
+|---|---|---|---|---|
+| Arduino Leonardo (default) | 20 | 17 | 9 | 2, 3 |
+| Pro Micro ATmega32U4 | 18 | 15 | 9 | 2, 3 |
 
 ### Sync outputs
 
-**Leonardo** (18): `0`, `1`, `4`, `5`, `6`, `7`, `8`, `9`, `10`, `11`, `12`, `13`, `A0`, `A1`, `A2`, `A3`, `A4`, `A5`
+**Leonardo** (17): `0`, `1`, `4`, `5`, `6`, `7`, `8`, `10`, `11`, `12`, `13`, `A0`, `A1`, `A2`, `A3`, `A4`, `A5`
 
-**Pro Micro** (16): `0`, `1`, `4`, `5`, `6`, `7`, `8`, `9`, `10`, `14`, `15`, `16`, `A0`, `A1`, `A2`, `A3`
+**Pro Micro** (15): `0`, `1`, `4`, `5`, `6`, `7`, `8`, `10`, `14`, `15`, `16`, `A0`, `A1`, `A2`, `A3`
 
 Wire any output pin plus GND to a BNC connector.
 
@@ -49,7 +49,10 @@ Wire any output pin plus GND to a BNC connector.
 | 2 | TRIG IN | `INPUT_PULLUP`, external interrupt capable |
 | 3 | FREE/TRIG mode switch | `INPUT_PULLUP` |
 
-These two are excluded from the output set when `TRIG_FEATURE` is 1.
+| 9 | Event channel output | driven independently of the train |
+
+These are excluded from the sync output set: the trigger pins when
+`TRIG_FEATURE` is 1, and the event pin when `EVENT_CHANNEL_ENABLED` is 1.
 The `sync_pulse_freerun` build sets it to 0, has no trigger path, and
 uses both as additional outputs.
 
@@ -158,7 +161,45 @@ The run clock starts at the **leading edge of the marker pulse**, so
 embedded timecode stays referenced to the trigger instant, and the
 pause is a known constant.
 
-## 6. Serial interface
+## 6. Event channel (pin 9)
+
+Carries events instead of the sync train. Every trigger arriving on
+TRIG IN emits a marker here; the remaining outputs carry the train
+untouched.
+
+    [MARK][gap][payload symbols, MSB first][gap]
+
+| Element | Duration |
+|---|---|
+| MARK (the event) | 200 ms |
+| Gap between symbols | 50 ms |
+| Symbol = 0 | 50 ms |
+| Symbol = 1 | 100 ms |
+| Payload | 8-bit per-run event counter |
+| Total marker | 1050–1450 ms |
+
+**The MARK's leading edge is the event**, at interrupt latency
+(~4 µs). Everything after it is an identifier and does not affect
+timing, so accuracy is the same regardless of the payload.
+
+The counter is per-run: event 3 of run 7 is unambiguous. It lets a
+camera that saw only this channel tell one trigger from another,
+which is the one thing a plain event flag cannot do.
+
+**Close-spaced triggers**: a new trigger aborts a marker still in
+progress. The MARK always fires; the counter is best-effort. Event
+timing is never sacrificed to finish an identifier, and a decoder
+reports the truncated marker with its exact timestamp rather than
+guessing a number from partial bits.
+
+Widths are sized for the slowest recorder that might see this: at
+24 fps a frame is 41.7 ms, and a pulse must exceed one full frame
+interval to be caught regardless of phase. The 200 ms mark spans
+4.8 frames; the symbols span 1.2 and 2.4.
+
+Decode with `presync.decode_events()`.
+
+## 7. Serial interface
 
 USB CDC (`Serial`), which consumes no GPIO. Commands are newline
 terminated. Changes take effect immediately; `save` persists them.
@@ -181,7 +222,7 @@ terminated. Changes take effect immediately; `save` persists them.
 | `config` | print the running configuration |
 | `help` | list commands |
 
-## 7. Persistence
+## 8. Persistence
 
 | Item | Address | Notes |
 |---|---|---|

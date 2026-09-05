@@ -9,7 +9,7 @@ for p in frame face face_art lid hole_test; do
   openscad -o "exports/png/trigger-$p.png" --imgsize=1400,1000 --autocenter \
     --viewall --colorscheme=Tomorrow -D "part=\"$p\"" trigger-box.scad 2>/dev/null
 done
-for p in ring ring_in base top_gain top_led led_head top_sound; do
+for p in ring ring_in base top_gain top_led led_head led_head_5mm top_sound; do
   echo "-- pod $p"
   openscad -o "exports/stl/pod-$p.stl" -D "part=\"$p\"" pods.scad 2>/dev/null
   openscad -o "exports/png/pod-$p.png" --imgsize=1400,1000 --autocenter \

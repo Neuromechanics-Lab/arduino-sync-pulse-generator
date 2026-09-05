@@ -14,6 +14,9 @@
 //                lamp gooseneck, wires run inside, holds any position).
 //   led_head   — screws on the gooseneck's far end: 10mm LED press-fit
 //                with the panel-ring seat, wire passage through.
+//   led_head_5mm — 5mm LED variant: LED pushes in from the back (same side
+//                as the wire passage) through a straight bore until its
+//                flange catches on a narrower front opening, flush at front.
 //   top_sound  — SOUND puck top: pocket for a 5V ACTIVE piezo buzzer, grille,
 //                VOL pot, and a LEVEL/EDGE toggle: sound for the whole HIGH,
 //                or one short blip on each rising edge (RC one-shot inside).
@@ -26,7 +29,7 @@
 
 include <lib/nyk-lib.scad>
 
-part = "ring";   // ring | ring_in | base | top_gain | top_led | led_head | top_sound | preview
+part = "ring";   // ring | ring_in | base | top_gain | top_led | led_head | led_head_5mm | top_sound | preview
 
 // ---- Puck body --------------------------------------------------------------
 puck_d   = 60;
@@ -39,6 +42,11 @@ pot_d    = 7.2;
 led_d    = 10.4;    // 10mm LED press-fit
 led_ring_d = 14;    // LED panel-ring seat (inset), matches the box face
 art_recess = 1.2;
+
+// 5mm LED (typical cheap THT type) — VERIFY against the part you buy
+led5_d        = 5.2;    // body diameter, through-bore
+led5_flange_d = 5.9;    // flange diameter, catches at the front opening
+led5_flange_h = 0.8;    // flange thickness
 
 // posts: 4 at 45° off the BNC axis, sunk into the wall
 post_d   = 7;
@@ -208,6 +216,24 @@ module led_head() {
   }
 }
 
+// ---- LED head, 5mm variant: through-hole with flange catch -----------------
+// Same gooseneck insert + wire passage as led_head. Instead of a blind
+// press-fit pocket, the LED pushes in from the BACK (same side as the wire
+// passage) through a straight 5mm bore, until its flange catches on the
+// narrower front opening and seats flush with the front face.
+module led_head_5mm() {
+  difference() {
+    cylinder(d = head_d, h = head_h);
+    translate([0, 0, -0.01]) cylinder(d = gn_insert_d, h = gn_insert_h);           // insert, from the back
+    // wire passage only through the insert region — above that, the LED's
+    // own bore (wider than gn_thread_d) is the passage, so nothing here
+    // gets wide enough to defeat the flange catch at the front opening
+    translate([0, 0, -0.5]) cylinder(d = gn_thread_d, h = gn_insert_h + 0.5);
+    translate([0, 0, gn_insert_h]) cylinder(d = led5_flange_d + 2*fit, h = head_h - gn_insert_h - led5_flange_h + 0.01); // body bore, flange clears through here
+    translate([0, 0, head_h - led5_flange_h]) cylinder(d = led5_d + 2*fit, h = led5_flange_h + 0.01); // front opening, narrower than the flange — this is the catch
+  }
+}
+
 // ---- SOUND top: active buzzer pocket + grille + VOL pot ---------------------
 // Modeled OUTSIDE face at z=0 (labels + countersinks there), buzzer pocket
 // walls growing from z=wall on the inside — prints flat exactly as modeled,
@@ -252,5 +278,6 @@ else if (part == "base") base();
 else if (part == "top_gain") top_gain();
 else if (part == "top_led") top_led();
 else if (part == "led_head") led_head();
+else if (part == "led_head_5mm") led_head_5mm();
 else if (part == "top_sound") top_sound();
 else if (part == "preview") preview();

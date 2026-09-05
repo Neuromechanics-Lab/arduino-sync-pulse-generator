@@ -34,7 +34,14 @@ connectors:
   OUT5:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
   OUT6:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
   OUT7:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
-  OUT8:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+  OUT8:
+    type: BNC
+    subtype: bulkhead
+    pinlabels: [centre, shield]
+    notes: >-
+      EVENT channel, not sync. Carries a marker per trigger; the mark's
+      leading edge is the event. Feed an LED converter or the 1-to-4 fan-out
+      pod from here.
 
   TRIG:
     type: BNC
@@ -67,7 +74,9 @@ cables:
     wirecount: 8
     gauge: 24 AWG
     colors: [RD, OG, YE, GN, BU, VT, GY, WH]
-    notes: Each conductor passes through its own series resistor at the BNC.
+    notes: >-
+      Each conductor passes through its own series resistor at the BNC.
+      Conductors 1-7 carry the sync train; 8 carries the event channel.
 
   W_GND:
     wirecount: 8

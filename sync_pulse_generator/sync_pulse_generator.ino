@@ -38,9 +38,23 @@ const int OUTPUT_PINS[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, A0, A1,
 const int NUM_PINS = NUM_OUTPUT_PINS;
 
 #if TRIG_FEATURE
-bool isReservedPin(int p) { return p == TRIG_IN_PIN || p == MODE_SWITCH_PIN; }
+bool isReservedPin(int p) {
+  if (p == TRIG_IN_PIN || p == MODE_SWITCH_PIN) return true;
+#if EVENT_CHANNEL_ENABLED
+  // The event channel is driven independently, so it must not be swept along
+  // with the train by setOutput().
+  if (p == EVENT_CHANNEL_PIN) return true;
+#endif
+  return false;
+}
 #else
-bool isReservedPin(int p) { (void)p; return false; }
+bool isReservedPin(int p) {
+  (void)p;
+#if EVENT_CHANNEL_ENABLED
+  if (p == EVENT_CHANNEL_PIN) return true;
+#endif
+  return false;
+}
 #endif
 
 // ---- Runtime settings (loaded from EEPROM or config.h defaults) ----
@@ -167,6 +181,67 @@ unsigned long computeNextDuration() {
   }
 }
 
+#if EVENT_CHANNEL_ENABLED
+// ---- Event channel ---------------------------------------------------------
+// Runs as its own non-blocking state machine so the sync train is never held
+// up waiting for a marker to finish. The two are completely independent: the
+// train does not know events exist, and an aborted marker cannot disturb it.
+//
+// Marker shape:  [200 ms MARK][gap][8 payload symbols, MSB first][gap]
+// where a symbol is 50 ms for 0 and 100 ms for 1, each followed by a gap.
+// The MARK's rising edge is the event timestamp.
+uint8_t  eventCounter    = 0;      // wraps at 255; 0 = no events yet this run
+bool     eventActive     = false;  // a marker is playing
+uint8_t  eventSeg        = 0;      // 0 = mark, then 1..2N alternating gap/sym
+uint8_t  eventPayload    = 0;      // the counter value being transmitted
+uint32_t eventNextChange = 0;
+bool     eventPinState   = LOW;
+
+void eventPinWrite(bool st) {
+  eventPinState = st;
+  digitalWrite(EVENT_CHANNEL_PIN, st);
+}
+
+// Total segments after the mark: for each bit, one gap then one symbol.
+static const uint8_t EVENT_SEGS = 1 + 2 * EVENT_COUNTER_BITS;
+
+// Duration of segment `seg`. Even segments after 0 are gaps, odd are symbols.
+uint16_t eventSegMs(uint8_t seg) {
+  if (seg == 0) return EVENT_MARK_MS;
+  if ((seg & 1) == 1) return EVENT_GAP_MS;          // gap
+  uint8_t bitIndex = (seg / 2) - 1;                  // 0..N-1, MSB first
+  uint8_t shift = (EVENT_COUNTER_BITS - 1) - bitIndex;
+  bool one = (eventPayload >> shift) & 1;
+  return one ? EVENT_BIT1_MS : EVENT_BIT0_MS;
+}
+
+// Fire a marker NOW. Called from the trigger path; the rising edge here is
+// what analysis reads as the event time, so nothing may delay it — including
+// a marker already in progress, which is simply cut short.
+void eventFire() {
+  eventCounter++;                     // first event of a run is 1
+  eventPayload = eventCounter;
+  eventActive = true;
+  eventSeg = 0;
+  eventPinWrite(HIGH);
+  eventNextChange = millis() + EVENT_MARK_MS;
+}
+
+void serviceEventChannel() {
+  if (!eventActive) return;
+  if ((int32_t)(millis() - eventNextChange) < 0) return;
+  eventSeg++;
+  if (eventSeg > EVENT_SEGS) {
+    eventActive = false;
+    eventPinWrite(LOW);
+    return;
+  }
+  // Gaps are LOW, symbols are HIGH.
+  eventPinWrite((eventSeg & 1) ? LOW : HIGH);
+  eventNextChange = millis() + eventSegMs(eventSeg);
+}
+#endif  // EVENT_CHANNEL_ENABLED
+
 void setOutput(bool state) {
   outputState = state;
   for (int i = 0; i < NUM_PINS; i++) {
@@ -177,6 +252,13 @@ void setOutput(bool state) {
 
 // (Re)start a fresh run: re-seed, outputs LOW, new run ID.
 void startNewRun() {
+#if EVENT_CHANNEL_ENABLED
+  // Event numbering is per-run: event 3 of run 7 is unambiguous, and a
+  // counter that carried across runs would not be.
+  eventCounter = 0;
+  eventActive = false;
+  eventPinWrite(LOW);
+#endif
   seedPrng(prngSeed);
   outputState = LOW;
   setOutput(LOW);
@@ -510,6 +592,10 @@ void setup() {
     digitalWrite(OUTPUT_PINS[i], LOW);
   }
 #if TRIG_FEATURE
+#if EVENT_CHANNEL_ENABLED
+  pinMode(EVENT_CHANNEL_PIN, OUTPUT);
+  digitalWrite(EVENT_CHANNEL_PIN, LOW);
+#endif
   pinMode(TRIG_IN_PIN, INPUT_PULLUP);
   pinMode(MODE_SWITCH_PIN, INPUT_PULLUP);
 #endif
@@ -587,6 +673,9 @@ void serviceTrigger() {
     // so every gated segment carries its own run ID and its own elapsed clock
     // — which is what lets the analysis tell one gated segment from another.
     if (level && !running) {
+#if EVENT_CHANNEL_ENABLED
+      eventFire();
+#endif
       startRunMaybeMarked();
       Serial.println(F("Gate HIGH: running"));
     } else if (!level && running) {
@@ -606,6 +695,13 @@ void serviceTrigger() {
     bool armed = trigLowSince != 0 &&
                  (millis() - trigLowSince) >= TRIG_ARM_LOW_MS;
     if (armed && !trigWasHigh) {
+#if EVENT_CHANNEL_ENABLED
+      // EVERY qualifying edge is an event, including ones that do not change
+      // the run state. In EDGE_START this is the whole point: the first
+      // trigger starts the run, and every trigger after it is an event to be
+      // marked rather than something to ignore.
+      eventFire();
+#endif
       if (!running) {
         startRunMaybeMarked();
         Serial.println(F("Triggered!"));
@@ -613,8 +709,10 @@ void serviceTrigger() {
         running = false;
         setOutput(LOW);
         Serial.println(F("Triggered: stopped"));
+      } else {
+        Serial.print(F("Event "));
+        Serial.println(eventCounter);
       }
-      // TRIG_MODE_EDGE_START while running: ignore, as before.
     }
     trigLowSince = 0;
   }
@@ -625,6 +723,9 @@ void serviceTrigger() {
 void loop() {
 #if TRIG_FEATURE
   serviceTrigger();
+#endif
+#if EVENT_CHANNEL_ENABLED
+  serviceEventChannel();
 #endif
   while (Serial.available()) {
     char c = Serial.read();

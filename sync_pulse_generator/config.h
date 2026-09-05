@@ -156,6 +156,40 @@
 #define DEFAULT_LEADIN_PULSE_MS      50   // marker pulse width
 #define DEFAULT_LEADIN_PAUSE_MS      500  // LOW hold before the train starts
 
+// ---- Event channel (PRE-Sync v1.1) -----------------------------------------
+// One output is split off from the sync train and carries EVENTS instead:
+// every trigger that arrives on TRIG IN emits a marker there. The remaining
+// outputs carry the pseudo-random train untouched.
+//
+// WHY A SEPARATE CHANNEL. The train and an event marker want opposite things.
+// The train is 50-500 ms pulses that any recorder, camera included, follows
+// easily — but interrupting it to announce an event costs template lock for
+// everyone who missed the interruption. The event marker wants to be long,
+// unmistakable, and carry an identifier. Giving each its own BNC costs one
+// output out of eighteen and lets both be right.
+//
+// WHAT THE MARKER IS. The mark pulse's LEADING EDGE is the event, at interrupt
+// latency (~4 us). Everything after it is payload and does not affect timing,
+// so the accuracy is identical no matter how much is encoded. The payload is
+// an 8-bit event counter, so a camera that saw only this channel can still
+// tell trigger 3 from trigger 7 — the one thing a plain event flag cannot do.
+//
+// WHY THESE WIDTHS. Sized for the slowest recorder that might see it. At 24
+// fps a frame is 41.7 ms, and a pulse must exceed one full frame interval to
+// be caught regardless of phase — with a short exposure, closer to twice it.
+// 50 ms symbols clear that; the 200 ms mark is unmistakable at any rate.
+//
+// The whole marker is about 1250 ms. Triggers closer together than that abort
+// the payload in progress: the MARK ALWAYS FIRES, the counter is best-effort.
+// Event timing is never sacrificed to finish an identifier.
+#define EVENT_CHANNEL_ENABLED 1
+#define EVENT_CHANNEL_PIN     9    // excluded from the sync train when enabled
+#define EVENT_MARK_MS         200  // the event itself; leading edge = timestamp
+#define EVENT_GAP_MS          50   // between symbols
+#define EVENT_BIT0_MS         50   // short symbol = 0
+#define EVENT_BIT1_MS         100  // long symbol  = 1
+#define EVENT_COUNTER_BITS    8    // 0-255, wraps
+
 // ---- EEPROM ----
 // Magic byte to detect if EEPROM has valid saved config.
 // Change this value to force a reset to defaults on next boot.

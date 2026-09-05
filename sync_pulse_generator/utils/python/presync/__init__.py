@@ -12,6 +12,7 @@ The pipeline, in the order a full analysis runs them:
     load -> locate -> score -> chunk -> judge -> compare -> report
 
   load     recording file -> edge times (XDF, C3D, CSV)
+  events   decode the event channel: which trigger, and exactly when
   locate   find where the recording sits in the generator's sequence
   score    offset, drift, jitter, capture, loss -- against the template
   chunk    per-window quality, on timecode frames where present
@@ -54,6 +55,10 @@ from analyze import (analyze_streams, analyze_file, Analysis, StreamResult)
 from align import (Source, Fit, AlignResult, lock_source, align_recordings,
                    score_against_truth)
 
+# ---- event channel -----------------------------------------------------
+from events import (decode_events, event_report, Event,
+                    MARK_MS, GAP_MS, BIT0_MS, BIT1_MS, COUNTER_BITS)
+
 # ---- pairwise diagnosis ------------------------------------------------
 from diagnose import Recording, PairReport, diagnose_pair
 
@@ -68,6 +73,8 @@ __all__ = [
     "decode_source_frames",
     "score", "classify", "correct", "compare_reports", "truth_report",
     "TruthReport", "SEED", "STEP_MS", "SEARCH_HOURS",
+    "decode_events", "event_report", "Event",
+    "MARK_MS", "GAP_MS", "BIT0_MS", "BIT1_MS", "COUNTER_BITS",
     "Source", "Fit", "AlignResult", "lock_source", "align_recordings",
     "score_against_truth", "Recording", "PairReport", "diagnose_pair",
     "__version__",
