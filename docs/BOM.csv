@@ -1,21 +1,24 @@
 ref,qty,item,specification,mpn,supplier,unit_price,currency,price_date,notes
-U1,1,Microcontroller board,"Pro Micro ATmega32U4, USB-C, 5V/16MHz",,,,,,"Leonardo also supported; -DBOARD_PRO_MICRO selects 18-pin variant"
-J1-J8,8,BNC connector,"Panel-mount bulkhead, threaded, 3/8-32, 9.7mm panel hole",,,,,,"Sync outputs. Hole dia from trigger-box.scad bnc_d"
-J9,1,BNC connector,"Panel-mount bulkhead, threaded, 3/8-32, 9.7mm panel hole",,,,,,"TRIG IN. Same part as J1-J8"
-J10,1,DC barrel jack,"Panel-mount, 5.5x2.1mm, 11.5mm bushing",,,,,,"PWR. Hole dia from barrel_d"
+U1,1,Microcontroller board,"Pro Micro ATmega32U4, USB-C, 5V/16MHz",,,,,,Leonardo also supported; -DBOARD_PRO_MICRO selects 18-pin variant
+J1-J8,8,BNC connector,"Panel-mount bulkhead, threaded, 3/8-32, 9.7mm panel hole",,,,,,Sync outputs. Hole dia from trigger-box.scad bnc_d
+J9,1,BNC connector,"Panel-mount bulkhead, threaded, 3/8-32, 9.7mm panel hole",,,,,,TRIG IN. Same part as J1-J8
+J10,1,DC barrel jack,"Panel-mount, 5.5x2.1mm, 11.5mm bushing",,,,,,PWR. Hole dia from barrel_d
 SW1,1,Toggle switch,"SPDT, 6mm bushing, panel mount",MTS-102,,,,,"Hole 6.5mm fit-tested. FREE throw OPEN, TRIG throw to GND"
-R1-R8,8,Resistor,"Series output resistor, 1/4W, value TBD",,,,,,"VERIFY: value not yet fixed. Sets output impedance"
-R9,1,Resistor,"1k ohm, 1/4W",,,,,,"TRIG IN series protection"
-D1,1,LED,"Panel indicator, 3mm or 5mm",,,,,,"Face LED. Confirm bezel dia against led_bezel_d"
+R1-R8,8,Resistor,"Series output resistor, 1/4W, value TBD",,,,,,VERIFY: value not yet fixed. Sets output impedance
+R9,1,Resistor,"1k ohm, 1/4W",,,,,,TRIG IN series protection
+D1,1,LED,"Panel indicator, 3mm or 5mm",,,,,,Face LED. Confirm bezel dia against led_bezel_d
 R10,1,Resistor,"LED series, value depends on D1 Vf",,,,,,
-PCB1,1,Prototyping board,"Perfboard, size TBD",,,,,,"VERIFY: pcb_dx=76 pcb_dy=15 post spacing UNVERIFIED against real board"
+PCB1,1,Prototyping board,"Perfboard, size TBD",,,,,,VERIFY: pcb_dx=76 pcb_dy=15 post spacing UNVERIFIED against real board
 MECH1,1,Enclosure frame,"3D printed, PETG or ABS",,,,,,"trigger-box.scad part=frame. Prints rim-down, no supports"
-MECH2,1,Enclosure face plate,"3D printed",,,,,,"part=face"
-MECH3,1,Enclosure face art,"3D printed, contrast filament",,,,,,"part=face_art"
-MECH4,1,Enclosure lid,"3D printed",,,,,,"part=lid. Bottom when deployed"
-MECH5,1,Copper foil tape,"Adhesive, for interior shielding",,,,,,"Single ground point at the 10-32 screw"
+MECH2,1,Enclosure face plate,3D printed,,,,,,part=face
+MECH3,1,Enclosure face art,"3D printed, contrast filament",,,,,,part=face_art
+MECH4,1,Enclosure lid,3D printed,,,,,,part=lid. Bottom when deployed
+MECH5,1,Copper foil tape,"Adhesive, for interior shielding",,,,,,Single ground point at the 10-32 screw
 HW1,1,Ground screw,"10-32, with ring terminal",,,,,,"Right end wall, chassis/tether point"
-HW2,4,Screw,"M3 self-tapping, face plate to corner posts",,,,,,
-HW3,4,Screw,"M3 self-tapping, lid to corner posts",,,,,,
-HW4,4,Screw,"M2.5 self-tapping, PCB to hanging posts",,,,,,"Pilot dia 2.2mm in the post ends"
-WIRE1,1,Hookup wire,"22-24 AWG stranded, multiple colours",,,,,,"See docs/WIRING.md for the harness"
+HW2,4,Screw,"M3 x 12 self-tapping, countersunk head",,,,,,"face plate to corner posts (3 mm through, ~9 mm engagement). 3.4 mm clearance / 2.8 mm pilot"
+HW3,4,Screw,"M3 x 16 self-tapping, countersunk head",,,,,,lid to corner posts — LONGER than the face screws: 3 mm plate + 3 mm lip to pass before engaging
+HW4,4,Screw,"M2.5 x 8 self-tapping, pan head",,,,,,PCB to hanging posts. Pilot 2.2 mm x 5.5 deep
+WIRE1,1,Hookup wire,"22-24 AWG stranded, multiple colours",,,,,,See docs/WIRING.md for the harness
+HW5,8,Screw,"M3 x 12 self-tapping, countersunk head",,,,,,"pod top + base plates, 4 each. Same as HW2 — order together"
+HW6,2,Mounting screw,"#8 or M4, pan/round head, head dia <= 8.0 mm",,,,,,"wall mount via keyholes. NOT into the print: head passes an 8.6 mm hole, shank rides a 4.5 mm slot. Counterbored so the head sits below the face"
+HW7,2,Heat-set insert,"Brass, 1/4""-20, 0.290 in OD x 0.312 in long",151030,McMaster-Carr,,,,"gooseneck, one per end. Printed hole 7.07 mm — UNDERSIZED on purpose, see docs/ACCESSORIES.md"

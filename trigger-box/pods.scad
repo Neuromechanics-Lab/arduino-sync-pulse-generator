@@ -61,6 +61,13 @@ key_slot_w = 4.5;
 key_slide  = 9;
 key_pad_d  = 16;
 key_pad_h  = 3;
+// Counterbore on the OUTSIDE face so a mounted screw head sits BELOW the
+// bottom of the pod. Without it the head stands proud of an otherwise flat
+// disc and the pod rocks on it whenever it is set on a bench. The pod is
+// wall-mounted in use but spends most of its life on a table, which is where
+// the defect shows.
+key_cbore_d = 15;
+key_cbore_h = 2.0;   // of wall = 3, leaving 1 mm carrying the slot
 
 // ---- Gooseneck mount --------------------------------------------------------
 // 1/4"-20 male ends (the common mic/lamp gooseneck thread), screwing into a
@@ -183,16 +190,27 @@ module ring(h = body_h, with_out = true) {
 }
 
 // ---- Base plate: keyhole ----------------------------------------------------
+// Bottom plate. Two things must open DOWNWARD here, both of which were
+// opening the wrong way and left the pod resting on hardware instead of on
+// its own flat face:
+//   * the assembly screw countersinks -> plate_screws_bottom(), not
+//     plate_screws(), which is the top-plate variant and flares upward
+//   * the keyhole, which needs a counterbore for the mounting screw head
 module base() {
   difference() {
     union() {
       plate_disc();
       translate([0, 0, wall]) cylinder(d = key_pad_d, h = key_pad_h);   // inside
     }
-    plate_screws();
+    plate_screws_bottom();
     translate([0, 0, -0.5]) cylinder(d = key_head_d, h = wall + key_pad_h + 1);
     hull() for (yy = [0, key_slide])
       translate([0, yy, -0.5]) cylinder(d = key_slot_w, h = wall + key_pad_h + 1);
+    // head counterbore, swept along the slot so it stays recessed through
+    // the full travel rather than only where the screw drops in
+    translate([0, 0, -0.01])
+      hull() for (yy = [0, key_slide])
+        translate([0, yy, 0]) cylinder(d = key_cbore_d, h = key_cbore_h + 0.01);
   }
 }
 
