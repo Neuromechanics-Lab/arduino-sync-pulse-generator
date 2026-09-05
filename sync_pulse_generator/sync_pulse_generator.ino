@@ -350,6 +350,18 @@ void scheduleNextFrame() {
 
 void printConfig() {
   Serial.println(F("=== Sync Pulse Generator Config ==="));
+  Serial.print(F("  Firmware: ")); Serial.print(F(FW_VERSION));
+  Serial.print(F("  built ")); Serial.println(F(FW_DATE));
+  Serial.print(F("  Protocol: ")); Serial.print(PROTOCOL_VERSION);
+  Serial.println(F("   (the signal on the wire; decoders match on this)"));
+  Serial.print(F("  Hardware: ")); Serial.print(F(HW_VARIANT));
+#if EVENT_CHANNEL_ENABLED
+  Serial.print(F("+event"));
+#endif
+#if !TRIG_FEATURE
+  Serial.print(F(" freerun-build"));
+#endif
+  Serial.println();
   Serial.print(F("  Seed:     ")); Serial.println(prngSeed);
   Serial.print(F("  High ms:  ")); Serial.print(minHighMs);
   Serial.print(F(" - "));          Serial.println(maxHighMs);
@@ -366,12 +378,30 @@ void printConfig() {
   } else {
     Serial.println(F("OFF (pure pseudo-random)"));
   }
-  Serial.print(F("  Pins:     "));
-  for (int i = 0; i < NUM_PINS; i++) {
-    Serial.print(OUTPUT_PINS[i]);
-    if (i < NUM_PINS - 1) Serial.print(F(", "));
+  // Only the pins actually carrying the train. Printing the raw array listed
+  // the reserved trigger pins and the event channel as sync outputs, which is
+  // exactly the sort of thing someone wires a BNC to and then cannot explain.
+  Serial.print(F("  Sync pins:"));
+  {
+    bool first = true;
+    for (int i = 0; i < NUM_PINS; i++) {
+      if (isReservedPin(OUTPUT_PINS[i])) continue;
+      if (!first) Serial.print(F(","));
+      Serial.print(F(" "));
+      Serial.print(OUTPUT_PINS[i]);
+      first = false;
+    }
   }
   Serial.println();
+#if EVENT_CHANNEL_ENABLED
+  Serial.print(F("  Event pin: "));
+  Serial.println(EVENT_CHANNEL_PIN);
+#endif
+#if TRIG_FEATURE
+  Serial.print(F("  Reserved:  "));
+  Serial.print(TRIG_IN_PIN); Serial.print(F(" TRIG IN, "));
+  Serial.print(MODE_SWITCH_PIN); Serial.println(F(" MODE SW"));
+#endif
 #if TRIG_FEATURE
   Serial.print(F("  Mode:     "));
   Serial.println(digitalRead(MODE_SWITCH_PIN) == LOW

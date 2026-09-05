@@ -13,6 +13,40 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+// ---- Identity: firmware, protocol, hardware -------------------------------
+// THREE VERSIONS, because they change independently and for different reasons.
+// Collapsing them into one number is what makes old recordings undecodable:
+// you can no longer tell whether a firmware bump changed the signal or only
+// fixed a typo in a serial message.
+//
+//   FW_VERSION        this build. Bump for any change at all.
+//   PROTOCOL_VERSION  THE SIGNAL ON THE WIRE. Bump ONLY when a decoder written
+//                     for the previous version would mis-read this one:
+//                     timecode frame layout, symbol widths, the event marker
+//                     shape, the PRNG or its draw order. Never for a serial
+//                     message, a comment, or a default that is transmitted in
+//                     the config anyway.
+//   HW_VARIANT        which physical build this firmware is for. Determines
+//                     pin counts and what is wired to what.
+//
+// The protocol version is the one analysis depends on. A recording is only
+// interpretable if you know which protocol produced it, and since the box is
+// often recorded by devices that never see the serial port, the protocol
+// version is reported in the config AND is implicit in the timecode frame
+// layout itself.
+#define FW_VERSION        "1.1.0"
+#define PROTOCOL_VERSION  2      // 1 = pre-event-channel; 2 = adds the event
+                                 //     channel and its 8-bit marker payload
+#define FW_DATE           __DATE__
+
+#ifdef BOARD_PRO_MICRO
+  #define HW_VARIANT      "promicro"
+#else
+  #define HW_VARIANT      "leonardo"
+#endif
+
+
+
 // ---- Output Pins ----
 // Pin count differs by board; see the per-board section below.
 // USB is handled internally by ATmega32U4 and doesn't consume any pins.
