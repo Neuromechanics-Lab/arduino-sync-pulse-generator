@@ -453,7 +453,7 @@ voting, coverage scoring placed 100% of its events correctly.</p></li>
 </span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a><span class="c1"># this, so it is the natural unit for timing error: a recorder inside +/-0.5</span>
 </span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a><span class="c1"># units can never be assigned to the wrong tick, whatever the millisecond</span>
 </span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a><span class="c1"># figure happens to be.</span>
-</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a><span class="n">STEP_MS</span> <span class="o">=</span> <span class="mf">5.0</span>
+</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a><span class="n">STEP_MS</span> <span class="o">=</span> <span class="mf">1.0</span>   <span class="c1"># config.h DURATION_STEP_MS (protocol 3; was 5.0)</span>
 </span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a>
 </span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a><span class="c1"># A transition off by more than this many quanta is not jitter — it is a</span>
 </span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a><span class="c1"># single corrupted timestamp, and averaging it into a standard deviation</span>
@@ -1366,7 +1366,7 @@ voting, coverage scoring placed 100% of its events correctly.</p></li>
                 <section id="STEP_MS">
                     <div class="attr variable">
             <span class="name">STEP_MS</span>        =
-<span class="default_value">5.0</span>
+<span class="default_value">1.0</span>
 
         
     </div>

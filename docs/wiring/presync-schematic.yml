@@ -18,16 +18,16 @@ nets:
 blocks:
   - id: U1
     name: ATmega32U4
-    desc: Pro Micro / Leonardo
+    desc: "Pro Micro. Two ports: PORTF (A3-A0), PORTB (15/14/16/10)"
     pins:
-      - {id: D0,  dir: out, net: OUT1}
-      - {id: D1,  dir: out, net: OUT2}
-      - {id: D4,  dir: out, net: OUT3}
-      - {id: D5,  dir: out, net: OUT4}
-      - {id: D6,  dir: out, net: OUT5}
-      - {id: D7,  dir: out, net: OUT6}
-      - {id: D8,  dir: out, net: OUT7}
-      - {id: D9,  dir: out, net: OUT8}
+      - {id: A3/21, dir: out, net: OUT1}
+      - {id: A2/20, dir: out, net: OUT2}
+      - {id: A1/19, dir: out, net: OUT3}
+      - {id: A0/18, dir: out, net: OUT4}
+      - {id: D15,   dir: out, net: OUT5}
+      - {id: D14,   dir: out, net: OUT6}
+      - {id: D16,   dir: out, net: OUT7}
+      - {id: D10,   dir: out, net: OUT8}
       - {id: D2,  dir: in,  net: TRIG, note: INT1, pullup: internal}
       - {id: D3,  dir: in,  net: MODE, note: INT0, pullup: internal}
 
@@ -46,6 +46,16 @@ blocks:
       Protects the input pin from an out-of-range master. The pin's internal
       pullup holds the line HIGH when nothing is connected.
 
+  - id: JTAG
+    name: JTD
+    desc: MCUCR bit, cleared at startup
+    note: >-
+      A3-A0 are PF4-PF7, the JTAG pins TCK/TMS/TDO/TDI. With the factory
+      JTAGEN fuse, JTAG owns them and a PORTF write does nothing -- four
+      channels would never toggle, with a clean compile and a correct-looking
+      config. Setting JTD in MCUCR releases them; the write must happen twice
+      within four clock cycles or the hardware ignores it.
+
   - id: SW1
     name: SW1
     desc: SPDT FREE/TRIG
@@ -54,13 +64,13 @@ blocks:
       switch reads HIGH = FREE RUN and the box emits. Fails into working.
 
 chains:
-  - [U1.D0, R1_8, "J1 centre"]
-  - [U1.D1, R1_8, "J2 centre"]
-  - [U1.D2, R1_8, "J3 centre"]
-  - [U1.D3, R1_8, "J4 centre"]
-  - [U1.D4, R1_8, "J5 centre"]
-  - [U1.D5, R1_8, "J6 centre"]
-  - [U1.D6, R1_8, "J7 centre"]
-  - [U1.D7, R1_8, "J8 centre"]
+  - [U1.A3/21, R1_8, "J1 centre"]
+  - [U1.A2/20, R1_8, "J2 centre"]
+  - [U1.A1/19, R1_8, "J3 centre"]
+  - [U1.A0/18, R1_8, "J4 centre"]
+  - [U1.D15,   R1_8, "J5 centre"]
+  - [U1.D14,   R1_8, "J6 centre"]
+  - [U1.D16,   R1_8, "J7 centre"]
+  - [U1.D10,   R1_8, "J8 centre"]
   - ["J9 centre (TRIG IN)", R9, U1.D2]
   - ["SW1 common", "", U1.D3]

@@ -29,18 +29,37 @@ Regenerate with `python3 tools/gen_interface_doc.py` after changing
 
 Two board variants. Select Pro Micro with `-DBOARD_PRO_MICRO`.
 
-| Board | Total GPIO | Sync outputs | Event channel | Reserved inputs |
-|---|---|---|---|---|
-| Arduino Leonardo (default) | 20 | 17 | 9 | 2, 3 |
-| Pro Micro ATmega32U4 | 18 | 15 | 9 | 2, 3 |
+| Board | Panel outputs | Event channel | Reserved inputs |
+|---|---|---|---|
+| Arduino Leonardo | 8 | 9 | 2, 3 |
+| Pro Micro ATmega32U4 | 8 | 9 | 2, 3 |
 
 ### Sync outputs
 
-**Leonardo** (17): `0`, `1`, `4`, `5`, `6`, `7`, `8`, `10`, `11`, `12`, `13`, `A0`, `A1`, `A2`, `A3`, `A4`, `A5`
+Eight, matching the enclosure. Chosen so they sit as two contiguous
+runs of four on the pin header **and** on only two AVR ports, so the
+ISR drives them with two register writes (~0.13 µs) rather than eight
+`digitalWrite()` calls (~35 µs, a real skew between channels).
 
-**Pro Micro** (15): `0`, `1`, `4`, `5`, `6`, `7`, `8`, `10`, `14`, `15`, `16`, `A0`, `A1`, `A2`, `A3`
+**Pro Micro** — right header, rows 4–11:
 
-Wire any output pin plus GND to a BNC connector.
+| Header | Pins | Port |
+|---|---|---|
+| A | `21`, `20`, `19`, `18` | PORTF |
+| B | `15`, `14`, `16`, `10` | PORTB |
+
+> **A3–A0 are the JTAG pins** (PF4–PF7). The firmware clears JTD in
+> `MCUCR` at startup to release them as GPIO. Without that the port
+> write is ignored and four channels never toggle — silently, with
+> a clean compile and a correct-looking config.
+
+**Leonardo**: `0`, `1`, `4`, `6`, `8`, `10`, `11`, `12`
+
+The Leonardo cannot match the Pro Micro layout: its A0–A5 block is
+six contiguous PORTF pins, not eight, so this set keeps the
+two-port property and gives up one contiguous run.
+
+Wire each output plus GND to a BNC connector.
 
 ### Reserved pins
 
@@ -219,6 +238,7 @@ terminated. Changes take effect immediately; `save` persists them.
 | `start` | begin emitting |
 | `stop` | stop emitting (outputs LOW) |
 | `restart` | restart the PRNG; increments run ID |
+| `pintest` |  |
 | `config` | print the running configuration |
 | `help` | list commands |
 

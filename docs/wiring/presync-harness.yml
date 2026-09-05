@@ -11,18 +11,21 @@ connectors:
   MCU:
     type: Pro Micro ATmega32U4
     subtype: male header
-    notes: 5 V logic. USB is a separate peripheral and consumes no pins.
+    notes: >-
+      Pro Micro. Outputs are two contiguous 4-way runs on the right header:
+      A3-A0 (PORTF) and 15/14/16/10 (PORTB). A3-A0 are JTAG pins; the firmware
+      clears JTD in MCUCR to use them as GPIO.
     pinlabels:
       - GND
-      - D0
-      - D1
-      - D4
-      - D5
-      - D6
-      - D7
-      - D8
-      - D9
+      - A3 (21)
+      - A2 (20)
+      - A1 (19)
+      - A0 (18)
+      - D15
+      - D14
+      - D16
       - D10
+      - D9 EVENT
       - D2 TRIG IN
       - D3 MODE SW
       - VCC
@@ -34,14 +37,16 @@ connectors:
   OUT5:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
   OUT6:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
   OUT7:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
-  OUT8:
+  OUT8:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
+
+  EVENT:
     type: BNC
     subtype: bulkhead
     pinlabels: [centre, shield]
     notes: >-
-      EVENT channel, not sync. Carries a marker per trigger; the mark's
-      leading edge is the event. Feed an LED converter or the 1-to-4 fan-out
-      pod from here.
+      Event channel on its own output, separate from the eight sync BNCs.
+      Carries a marker per trigger; the mark's leading edge is the event.
+      Feed an LED converter or the 1-to-4 fan-out pod from here.
 
   TRIG:
     type: BNC
@@ -76,7 +81,9 @@ cables:
     colors: [RD, OG, YE, GN, BU, VT, GY, WH]
     notes: >-
       Each conductor passes through its own series resistor at the BNC.
-      Conductors 1-7 carry the sync train; 8 carries the event channel.
+      All eight carry the same sync train, driven by two port writes so the
+      channel-to-channel skew is ~0.13 us. The event channel is separate
+      (pin 9) and is NOT part of this cable.
 
   W_GND:
     wirecount: 8
@@ -98,6 +105,12 @@ cables:
     wirecount: 2
     gauge: 22 AWG
     colors: [RD, BK]
+
+  W_EVENT:
+    wirecount: 2
+    gauge: 24 AWG
+    colors: [WH, BK]
+    notes: Event channel. Separate from the sync train's eight conductors.
 
   W_CHASSIS:
     wirecount: 1
@@ -208,4 +221,14 @@ connections:
   -
     - GNDLUG: [1]
     - W_CHASSIS: [1]
+    - MCU: [1]
+
+  # Event channel: its own output and its own BNC.
+  -
+    - MCU: [10]
+    - W_EVENT: [1]
+    - EVENT: [1]
+  -
+    - EVENT: [2]
+    - W_EVENT: [2]
     - MCU: [1]

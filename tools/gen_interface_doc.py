@@ -37,6 +37,22 @@ def pin_arrays(text):
     return out
 
 
+def panel_pins(cfg):
+    """The eight pins actually driven, per board.
+
+    These come from PANEL_PINS, not from OUTPUT_PINS. The old array is the
+    full set of GPIO the firmware once swept; the panel set is what the ISR
+    port-writes and what the enclosure exposes, and reporting the former
+    listed channels that do not exist.
+    """
+    out = {}
+    for m in re.finditer(
+            r"#define\s+PANEL_PINS\s+\{([^}]*)\}", cfg):
+        pins = [p.strip() for p in m.group(1).split(",")]
+        out[len(out)] = pins
+    return out
+
+
 def commands(text):
     """Serial command tokens, in the order the parser tests them."""
     seen, out = set(), []
@@ -73,6 +89,9 @@ def main():
     D = defines(cfg)
     arrays = pin_arrays(ino)
     pro, leo = (arrays + [[], []])[:2]
+    panels = panel_pins(cfg)
+    panel_pro = panels.get(0, [])
+    panel_leo = panels.get(1, [])
     cmds = commands(ino)
 
     trig_in = D.get("TRIG_IN_PIN", "2")
@@ -119,23 +138,41 @@ def main():
     A("")
     A(f"Two board variants. Select Pro Micro with `-DBOARD_PRO_MICRO`.")
     A("")
-    A("| Board | Total GPIO | Sync outputs | Event channel | Reserved inputs |")
-    A("|---|---|---|---|---|")
+    A("| Board | Panel outputs | Event channel | Reserved inputs |")
+    A("|---|---|---|---|")
     ev = f"{ev_pin}" if ev_on else "—"
-    A(f"| Arduino Leonardo (default) | {len(leo)} | {len(outputs(leo))} | "
-      f"{ev} | {trig_in}, {mode_sw} |")
-    A(f"| Pro Micro ATmega32U4 | {len(pro)} | {len(outputs(pro))} | "
-      f"{ev} | {trig_in}, {mode_sw} |")
+    A(f"| Arduino Leonardo | {len(panel_leo)} | {ev} | {trig_in}, {mode_sw} |")
+    A(f"| Pro Micro ATmega32U4 | {len(panel_pro)} | {ev} | "
+      f"{trig_in}, {mode_sw} |")
     A("")
     A("### Sync outputs")
     A("")
-    A(f"**Leonardo** ({len(outputs(leo))}): `" +
-      "`, `".join(outputs(leo)) + "`")
+    A("Eight, matching the enclosure. Chosen so they sit as two contiguous")
+    A("runs of four on the pin header **and** on only two AVR ports, so the")
+    A("ISR drives them with two register writes (~0.13 µs) rather than eight")
+    A("`digitalWrite()` calls (~35 µs, a real skew between channels).")
     A("")
-    A(f"**Pro Micro** ({len(outputs(pro))}): `" +
-      "`, `".join(outputs(pro)) + "`")
-    A("")
-    A("Wire any output pin plus GND to a BNC connector.")
+    if panel_pro:
+        A(f"**Pro Micro** — right header, rows 4–11:")
+        A("")
+        A(f"| Header | Pins | Port |")
+        A(f"|---|---|---|")
+        A(f"| A | `{'`, `'.join(panel_pro[:4])}` | PORTF |")
+        A(f"| B | `{'`, `'.join(panel_pro[4:])}` | PORTB |")
+        A("")
+        A("> **A3–A0 are the JTAG pins** (PF4–PF7). The firmware clears JTD in")
+        A("> `MCUCR` at startup to release them as GPIO. Without that the port")
+        A("> write is ignored and four channels never toggle — silently, with")
+        A("> a clean compile and a correct-looking config.")
+        A("")
+    if panel_leo:
+        A(f"**Leonardo**: `" + "`, `".join(panel_leo) + "`")
+        A("")
+        A("The Leonardo cannot match the Pro Micro layout: its A0–A5 block is")
+        A("six contiguous PORTF pins, not eight, so this set keeps the")
+        A("two-port property and gives up one contiguous run.")
+        A("")
+    A("Wire each output plus GND to a BNC connector.")
     A("")
     A("### Reserved pins")
     A("")
