@@ -43,18 +43,25 @@ led_d    = 10.4;    // 10mm LED press-fit
 led_ring_d = 14;    // LED panel-ring seat (inset), matches the box face
 art_recess = 1.2;
 
-// 5mm LED — MEASURED, not from a datasheet.
-// 5.22 mm is the WIDEST diameter: the lip at the base of the LED.
-//
-// The front of the head TAPERS down to 4.9 mm. The LED goes in from the back
-// and wedges on the cone, which is more forgiving than a flat shoulder: a
-// ledge has to be dimensioned to a tolerance the printer may not hold, while
-// a taper simply stops the LED wherever its diameter matches and self-centres
-// it on the way. The 4.9 mm mouth is narrower than the 5.22 lip, so the LED
-// cannot fall through no matter where it seats.
-led5_lip_d    = 5.22;   // widest point. MEASURED.
-led5_mouth_d  = 4.9;    // front opening, narrower than the lip
-led5_taper_h  = 3.0;    // over what depth the bore narrows to the mouth
+// 5mm LED — MEASURED.
+// 5.22 mm is the body diameter. The head's front mouth is 4.9 mm, narrower
+// than the body, so the LED loads from the BACK and stops there with its dome
+// protruding through. The bore tapers down to the mouth rather than stepping,
+// so the LED self-centres as it seats instead of relying on a ledge held to a
+// tolerance the printer may not reach.
+led5_d        = 5.22;   // body diameter. MEASURED.
+led5_mouth_d  = 4.9;    // front opening: the dome pokes through, the body stops
+led5_taper_h  = 2.5;    // depth over which the bore narrows to the mouth
+led5_seat_h   = 2.0;    // snug bore holding the body square. Short on
+                        // purpose: the LED only needs squaring, not
+                        // gripping along its length, and every extra mm
+                        // here is a mm the head grows by.
+// Behind the seat the bore opens out. The LED's legs run back from its base
+// and will not thread down a bore sized to the body itself -- at 0.25 mm per
+// side there is nowhere for them to go. This relief is the wire path from the
+// LED cavity into the gooseneck socket.
+led5_relief_d = 9.0;
+led5_relief_h = 1.5;    // length of the relief section
                         // lip. 0.15 clearance, 0.085 mm of ledge per side.
 
 // posts: 4 at 45° off the BNC axis, sunk into the wall
@@ -110,16 +117,11 @@ gn_insert_len = 7.92;  // the insert itself
 gn_insert_h  = 9.5;    // bore depth: insert + room for displaced plastic
 gn_collar_d  = 12.75;  // knurled collar that lands on the boss face
 
-// The LED HEAD mounts on the gooseneck's other end, which is a smooth 12.75 mm
-// BARREL rather than a thread. It seats in a bore and is held by a grub screw
-// through the side: a smooth barrel gives a thread nothing to bite, and glue
-// works loose under repeated repositioning, which is the whole point of a
-// gooseneck.
+// The LED HEAD's socket for the gooseneck end. 12.75 mm was measured off the
+// gooseneck; the socket is a plain bore with a lead-in chamfer.
 gn_barrel_d   = 12.75;
-gn_barrel_fit = 0.20;   // slip fit; the grub screw does the holding
-gn_barrel_h   = 12;     // bore depth: enough to resist the lever arm
-gn_grub_d     = 3.4;    // M3 grub screw, tapped into the head wall
-gn_grub_z     = 6;      // grub axis above the back face
+gn_barrel_fit = 0.20;
+gn_barrel_h   = 12;     // bore depth
 
 // The boss face must be wider than the collar so the collar seats flat on it
 // rather than overhanging an edge.
@@ -313,7 +315,10 @@ module led_head() {
 // grub screw, not the 1/4"-20 insert the puck base uses. The two ends of a
 // gooseneck are different fittings, so the two mounts are different.
 module led_head_5mm() {
-  h5 = max(head_h, gn_barrel_h + 6);
+  // socket + relief + seat + taper. Sized to land back on head_h (18 mm):
+  // stacking generous values for each region grew the part to 25 mm, which it
+  // has no reason to be — the LED needs squaring, not a long grip.
+  h5 = gn_barrel_h + led5_relief_h + led5_seat_h + led5_taper_h;
   difference() {
     cylinder(d = head_d, h = h5);
 
@@ -323,17 +328,16 @@ module led_head_5mm() {
     translate([0, 0, -0.01])
       cylinder(d1 = gn_barrel_d + gn_barrel_fit + 1.2,
                d2 = gn_barrel_d + gn_barrel_fit, h = 0.81);   // lead-in
-    // grub screw, radial into the socket
-    translate([0, 0, gn_grub_z]) rotate([0, 90, 0])
-      translate([0, 0, -head_d/2 - 0.01])
-        cylinder(d = gn_grub_d, h = head_d/2 + 0.02);
-
-    // LED cavity: straight bore from the barrel socket, then a taper to the
-    // front mouth. The LED loads from the back and stops on the cone.
-    translate([0, 0, gn_barrel_h])
-      cylinder(d = led5_lip_d + 2*fit, h = h5 - gn_barrel_h - led5_taper_h + 0.01);
+    // LED cavity, front to back:
+    //   taper   narrows to the mouth; the dome pokes through and the body stops
+    //   seat    snug bore holding the body square
+    //   relief  wider, so the legs have somewhere to run back to the socket
     translate([0, 0, h5 - led5_taper_h])
-      cylinder(d1 = led5_lip_d + 2*fit, d2 = led5_mouth_d, h = led5_taper_h + 0.01);
+      cylinder(d1 = led5_d + 2*fit, d2 = led5_mouth_d, h = led5_taper_h + 0.01);
+    translate([0, 0, h5 - led5_taper_h - led5_seat_h])
+      cylinder(d = led5_d + 2*fit, h = led5_seat_h + 0.01);
+    translate([0, 0, gn_barrel_h - 0.01])
+      cylinder(d = led5_relief_d, h = led5_relief_h + 0.02);
   }
 }
 
