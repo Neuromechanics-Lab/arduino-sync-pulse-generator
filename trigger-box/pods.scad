@@ -76,9 +76,22 @@ key_pad_h  = 3;
 // sits against the mounting surface, not a spigot to be bored for. The thread
 // is what carries the load; the collar just bottoms out. boss_d is sized to
 // give that collar a flat landing without the boss becoming a bore.
-gn_thread_d  = 6.9;    // wire passage / thread clearance beyond the insert
-gn_insert_d  = 7.6;    // VERIFY your insert's OD (~7.9-8.0 mm wants 7.6)
-gn_insert_h  = 10;
+// Insert: McMaster 151030 — INS 29/250-20/.312L, brass, heat/ultrasonic.
+//   29/250 = 0.290" OD  = 7.37 mm
+//   -20    = 1/4"-20    (the gooseneck thread)
+//   .312L  = 0.312" long = 7.92 mm
+//
+// THE HOLE IS SMALLER THAN THE INSERT. A heat-set insert is pressed in with a
+// soldering iron: the plastic melts and flows into the knurling, and that
+// interference is what holds it. A hole at or above the insert's OD gives the
+// knurl nothing to bite and the insert spins under the first real torque —
+// which on a gooseneck is every time it is repositioned. 0.3 mm under the OD
+// leaves 0.15 mm per side to melt, enough to grip without splitting the boss.
+gn_thread_d  = 6.9;    // wire passage / thread clearance BELOW the insert
+gn_insert_od = 7.37;   // the insert itself (McMaster 151030)
+gn_insert_d  = 7.07;   // the HOLE: OD - 0.3 interference for heat-setting
+gn_insert_len = 7.92;  // the insert itself
+gn_insert_h  = 9.5;    // bore depth: insert + room for displaced plastic
 gn_collar_d  = 12.75;  // knurled collar that lands on the boss face
 
 // The boss face must be wider than the collar so the collar seats flat on it
@@ -101,6 +114,18 @@ module fat_text(s, size = label_size) {
     text(s, size = size, font = label_font, halign = "center", valign = "center");
 }
 // deboss 2D children into the top face of a plate of thickness `wall`
+// Heat-set insert pocket, cut downward from z=`top`.
+// The chamfer matters more than it looks: without a lead-in the insert has
+// to be started perfectly square by hand while the iron is already melting
+// plastic, and a crooked insert cannot be straightened once it cools. The
+// cone lets it self-centre for the first half millimetre.
+module insert_pocket(top) {
+  translate([0, 0, top - gn_insert_h])
+    cylinder(d = gn_insert_d, h = gn_insert_h + 0.01);
+  translate([0, 0, top - 0.8])
+    cylinder(d1 = gn_insert_d, d2 = gn_insert_d + 1.2, h = 0.81);
+}
+
 module top_deboss() {
   translate([0, 0, wall - label_deboss]) linear_extrude(label_deboss + 0.01) children();
 }
@@ -215,8 +240,7 @@ module top_led() {
       translate([0, 0, wall]) cylinder(d = boss_d, h = boss_h);
     }
     plate_screws();
-    translate([0, 0, wall + boss_h - gn_insert_h])
-      cylinder(d = gn_insert_d, h = gn_insert_h + 0.01);
+    insert_pocket(wall + boss_h);
     translate([0, 0, -0.5]) cylinder(d = gn_thread_d, h = wall + boss_h + 1);
     top_deboss() translate([0, -22]) fat_text("LED", 3.6);
   }
@@ -231,6 +255,7 @@ module led_head() {
   difference() {
     cylinder(d = head_d, h = head_h);
     translate([0, 0, -0.01]) cylinder(d = gn_insert_d, h = gn_insert_h);
+    translate([0, 0, -0.01]) cylinder(d1 = gn_insert_d + 1.2, d2 = gn_insert_d, h = 0.81);  // lead-in
     translate([0, 0, -0.5]) cylinder(d = gn_thread_d, h = head_h + 1);           // wire passage
     translate([0, 0, head_h - 5]) cylinder(d = led_d + 2*fit, h = 6);           // LED press-fit
     translate([0, 0, head_h - art_recess]) cylinder(d = led_ring_d, h = art_recess + 0.01);
@@ -246,6 +271,7 @@ module led_head_5mm() {
   difference() {
     cylinder(d = head_d, h = head_h);
     translate([0, 0, -0.01]) cylinder(d = gn_insert_d, h = gn_insert_h);           // insert, from the back
+    translate([0, 0, -0.01]) cylinder(d1 = gn_insert_d + 1.2, d2 = gn_insert_d, h = 0.81);  // lead-in
     // wire passage only through the insert region — above that, the LED's
     // own bore (wider than gn_thread_d) is the passage, so nothing here
     // gets wide enough to defeat the flange catch at the front opening
