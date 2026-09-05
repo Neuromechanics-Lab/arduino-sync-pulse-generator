@@ -118,33 +118,52 @@
 #endif
 
 // ---- The eight panel outputs ------------------------------------------------
-// Eight, because that is what the enclosure exposes. Chosen so all eight sit on
-// just TWO AVR ports, which lets the ISR flip them with two register writes
-// instead of eight digitalWrite() calls.
+// Eight, because that is what the enclosure exposes. Two constraints shape
+// which eight:
 //
-// That is not a micro-optimisation. digitalWrite() is ~4.4 us each, so eight
-// of them sweep 35 us from first channel to last -- 14% of a 250 us quantum,
-// and a real skew between two devices fed from different BNCs. Two port writes
-// take ~0.13 us total, which is 60x better and below anything measurable.
+//   HEADERS. They sit as two contiguous runs of four on the board's pin
+//   header, so a pair of 4-way ribbon connectors reaches them with no
+//   skipped positions and no wire crossing. On a Pro Micro that is the
+//   right-hand side, rows 4-11, which is one unbroken run of eight.
 //
-// The masks are the reason the pin sets differ per board: pins 11/12 are not
-// broken out on a Pro Micro, 14/15 are not on a Leonardo.
+//   PORTS. All eight land on just two AVR ports, so the ISR flips them with
+//   two register writes. digitalWrite() is ~4.4 us each: eight of them sweep
+//   35 us from first channel to last, which is 14% of a 250 us quantum and a
+//   real skew between two devices on different BNCs. Two port writes take
+//   ~0.13 us.
+//
+// Those two constraints usually fight -- most contiguous header runs cross
+// three or four ports. On the Pro Micro they happen to coincide: A3..A0 are
+// all PORTF and 15/14/16/10 are all PORTB, and the two runs are adjacent.
+//
+// The Leonardo cannot do this. Its A0-A5 block is six contiguous PORTF pins,
+// not eight, so its set keeps the two-port property and gives up one
+// contiguous run. The Pro Micro is the board the enclosure is built around.
 #ifdef BOARD_PRO_MICRO
-  // PORTD: 0(D2) 1(D3) 4(D4) 6(D7)   PORTB: 8(B4) 10(B6) 14(B3) 15(B1)
-  #define OUT_PORTD_MASK  0x9C
-  #define OUT_PORTB_MASK  0x5A
-  #define PANEL_PINS      {0, 1, 4, 6, 8, 10, 14, 15}
+  // Right header, rows 4-11, top to bottom: A3 A2 A1 A0 | 15 14 16 10
+  //   header A (rows 4-7)  = 21,20,19,18  all PORTF
+  //   header B (rows 8-11) = 15,14,16,10  all PORTB
+  #define OUT_PORTF_MASK  0xF0
+  #define OUT_PORTB_MASK  0x4E
+  #define OUT_PORTD_MASK  0x00
+  #define PANEL_PINS      {21, 20, 19, 18, 15, 14, 16, 10}
 #else
   // PORTD: 0(D2) 1(D3) 4(D4) 6(D7) 12(D6)   PORTB: 8(B4) 10(B6) 11(B7)
-  #define OUT_PORTD_MASK  0xDC
+  #define OUT_PORTF_MASK  0x00
   #define OUT_PORTB_MASK  0xD0
+  #define OUT_PORTD_MASK  0xDC
   #define PANEL_PINS      {0, 1, 4, 6, 8, 10, 11, 12}
 #endif
 
 // Panel indicator LED. Mirrors the train so the box shows it is running.
 // On PORTB so it folds into the existing port write at no extra cost.
-#define PANEL_LED_PIN     16
-#define PANEL_LED_MASK    0x04     // PB2
+#ifdef BOARD_PRO_MICRO
+  #define PANEL_LED_PIN   8        // left side, clear of both headers
+  #define PANEL_LED_MASK  0x10     // PB4 -- folds into the PORTB write
+#else
+  #define PANEL_LED_PIN   16
+  #define PANEL_LED_MASK  0x04     // PB2
+#endif
 
 // ---- Timing Defaults (milliseconds) ----
 // HIGH duration range: how long the signal stays at 5V

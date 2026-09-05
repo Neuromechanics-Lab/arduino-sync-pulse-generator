@@ -247,10 +247,18 @@ void serviceEventChannel() {
 // the masks -- other bits on these ports belong to the trigger inputs, the
 // event channel and USB.
 inline void writeOutputs(bool state) {
-  uint8_t d = OUT_PORTD_MASK;
-  uint8_t b = OUT_PORTB_MASK | PANEL_LED_MASK;   // the panel LED mirrors the train
-  if (state) { PORTD |= d;  PORTB |= b; }
-  else       { PORTD &= ~d; PORTB &= ~b; }
+  const uint8_t d = OUT_PORTD_MASK;
+  const uint8_t f = OUT_PORTF_MASK;
+  const uint8_t b = OUT_PORTB_MASK | PANEL_LED_MASK;  // LED mirrors the train
+  if (state) {
+    if (d) PORTD |= d;
+    if (f) PORTF |= f;
+    PORTB |= b;
+  } else {
+    if (d) PORTD &= ~d;
+    if (f) PORTF &= ~f;
+    PORTB &= ~b;
+  }
 }
 
 void setOutput(bool state) {
@@ -614,6 +622,55 @@ void processCommand(const char* cmd) {
     running = true;
     Serial.println(F("Restarted with same seed"));
   }
+  else if (strcmp(token, "pintest") == 0) {
+    // Walk the eight panel outputs one at a time so each can be confirmed on
+    // a meter or a scope. Verifying the compile is not verifying the pins:
+    // a set that includes JTAG-owned pins compiles perfectly and drives
+    // nothing.
+    bool wasRunning = running;
+    running = false;
+    setOutput(LOW);
+    const uint8_t panel[] = PANEL_PINS;
+    Serial.println(F("Walking outputs, 400 ms each. Watch each channel."));
+    for (uint8_t i = 0; i < sizeof(panel); i++) {
+      Serial.print(F("  pin ")); Serial.print(panel[i]);
+      Serial.println(F(" HIGH"));
+      digitalWrite(panel[i], HIGH);
+      delay(400);
+      digitalWrite(panel[i], LOW);
+    }
+    // Read the port back after a PORT-WRITE (not digitalWrite): if JTAG still
+    // owns PF4-PF7 the bits will not stick, and digitalWrite would have
+    // masked that by taking a different path.
+    writeOutputs(HIGH);
+    delayMicroseconds(50);
+    uint8_t f_hi = PINF & OUT_PORTF_MASK;
+    uint8_t b_hi = PINB & OUT_PORTB_MASK;
+    writeOutputs(LOW);
+    delayMicroseconds(50);
+    uint8_t f_lo = PINF & OUT_PORTF_MASK;
+    uint8_t b_lo = PINB & OUT_PORTB_MASK;
+    Serial.print(F("  PORTF readback hi=0x")); Serial.print(f_hi, HEX);
+    Serial.print(F(" lo=0x")); Serial.print(f_lo, HEX);
+    Serial.print(F("  expect 0x")); Serial.print(OUT_PORTF_MASK, HEX);
+    Serial.println(F(" / 0x0"));
+    Serial.print(F("  PORTB readback hi=0x")); Serial.print(b_hi, HEX);
+    Serial.print(F(" lo=0x")); Serial.print(b_lo, HEX);
+    Serial.print(F("  expect 0x")); Serial.print(OUT_PORTB_MASK, HEX);
+    Serial.println(F(" / 0x0"));
+    Serial.println((f_hi == OUT_PORTF_MASK && f_lo == 0 &&
+                    b_hi == OUT_PORTB_MASK && b_lo == 0)
+                   ? F("  PORT WRITES OK -- all eight driven")
+                   : F("  *** PORT WRITE FAILED -- check JTD / masks ***"));
+    Serial.println(F("All eight together, 3 x 300 ms"));
+    for (uint8_t k = 0; k < 3; k++) {
+      writeOutputs(HIGH); delay(300);
+      writeOutputs(LOW);  delay(300);
+    }
+    Serial.println(F("pintest done"));
+    running = wasRunning;
+    if (running) { setOutput(LOW); schedulePrSegment(); }
+  }
   else if (strcmp(token, "config") == 0) {
     printConfig();
   }
@@ -683,10 +740,34 @@ ISR(TIMER3_COMPA_vect) {
 }
 
 void setup() {
-  for (int i = 0; i < NUM_PINS; i++) {
-    if (isReservedPin(OUTPUT_PINS[i])) continue;
-    pinMode(OUTPUT_PINS[i], OUTPUT);
-    digitalWrite(OUTPUT_PINS[i], LOW);
+  // ---- Free the A-pins from JTAG ------------------------------------------
+  // PF4-PF7 (A3..A0 on a Pro Micro) are the JTAG pins TCK/TMS/TDO/TDI. With
+  // the JTAGEN fuse set -- which is the factory default -- the JTAG interface
+  // owns them and writing PORTF does nothing useful: four of the eight
+  // channels would simply never toggle, silently.
+  //
+  // Setting JTD in MCUCR releases them to GPIO. The write must happen TWICE
+  // within four clock cycles or the hardware ignores it, which is why this
+  // looks redundant and must not be "tidied" into one line. No fuse change is
+  // needed and it costs only the ability to attach a JTAG debugger.
+  {
+    uint8_t sreg = SREG; cli();
+    MCUCR |= _BV(JTD);
+    MCUCR |= _BV(JTD);
+    SREG = sreg;
+  }
+
+  // Exactly the eight panel pins, from the same list the port masks were
+  // derived from. Walking OUTPUT_PINS here instead would set a direction on
+  // pins the ISR never touches -- and, on a Pro Micro, would leave the A-pins
+  // as inputs, so the PORTF write would have driven pullups rather than
+  // outputs and nothing would have appeared on four of the eight channels.
+  {
+    const uint8_t panel[] = PANEL_PINS;
+    for (uint8_t i = 0; i < sizeof(panel); i++) {
+      pinMode(panel[i], OUTPUT);
+      digitalWrite(panel[i], LOW);
+    }
   }
 #if TRIG_FEATURE
   timerInit();
