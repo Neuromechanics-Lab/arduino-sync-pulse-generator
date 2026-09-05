@@ -36,13 +36,18 @@ TC_PREAMBLE_GAP_MS = 10
 TC_GAP_ZERO_MS = 15
 TC_GAP_ONE_MS = 25
 TC_LEADIN_MS = 20                # forced LOW before each frame tick
-STEP_MS = 1                      # randomDuration granularity (config.h
-                                 # DURATION_STEP_MS). PROTOCOL 3: was 5 ms.
-                                 # Finer steps make the fingerprint far more
-                                 # unique -- 451 durations per draw instead of
-                                 # 91 -- without touching jitter measurement,
-                                 # which reads true edge times off the template
-                                 # exactly whatever the step is.
+# Duration quantum, in milliseconds. The generator draws pulse lengths on this
+# step and cannot emit anything finer, so the template must use the same value
+# the recording was made with or the regenerated waveform simply differs.
+#
+#   0.25  current firmware (config.h DURATION_STEP_US 250)
+#   5     early recordings, before the timer-driven emission
+#
+# Pass step_ms= to generate_template() for older data. Nothing else about
+# those recordings differs -- they are the same pseudo-random square wave from
+# the same seed, just quantised more coarsely -- so the step is the only knob
+# needed to read them.
+STEP_MS = 0.25
 
 
 def _xorshift32(state):
@@ -76,7 +81,7 @@ def frame_durations(elapsed_s, run_id=1):
 def generate_template(seed, duration_s,
                       min_high=50, max_high=500, min_low=50, max_low=500,
                       tc_enabled=True, tc_interval_s=10, run_id=1,
-                      tc_leadin_ms=TC_LEADIN_MS):
+                      tc_leadin_ms=TC_LEADIN_MS, step_ms=None):
     """Return (times_ms, levels): the level after each toggle, from t=0.
 
     Mirrors the firmware exactly:
@@ -90,14 +95,15 @@ def generate_template(seed, duration_s,
         (clamped) draw
     """
     state = seed if seed != 0 else 1
+    step = STEP_MS if step_ms is None else float(step_ms)
 
     def draw(mn, mx):
         nonlocal state
         if mn >= mx:
             return mn
         state = _xorshift32(state)
-        steps = (mx - mn) // STEP_MS + 1
-        return mn + (state % steps) * STEP_MS
+        steps = int((mx - mn) / step + 1)
+        return mn + (state % steps) * step
 
     t = 0.0
     level = 0

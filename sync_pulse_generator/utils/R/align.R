@@ -42,7 +42,9 @@ TC_PULSE_MS_G  <- 5
 TC_PRE_GAP_G   <- 10
 TC_ZERO_G      <- 15
 TC_ONE_G       <- 25
-STEP_MS        <- 1    # config.h DURATION_STEP_MS (protocol 3; was 5)
+# Duration quantum in ms. Must match the recording: 0.25 for current
+# firmware, 5 for early recordings (pure square wave, no timecode).
+STEP_MS        <- 0.25
 
 # Intervals shorter than this belong to a timecode frame, not the
 # pseudo-random train, and are excluded from fingerprint matching.

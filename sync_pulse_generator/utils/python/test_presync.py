@@ -163,11 +163,17 @@ def test_reference_session_reproduces():
     if not all(os.path.exists(f) for _, f in FILES):
         print("  skip  reference recordings not present on this machine")
         return
+    # These recordings predate the timer-driven firmware and were emitted on
+    # a 5 ms quantum. Nothing else about them differs -- same seed, same
+    # pseudo-random square wave, no timecode -- so the step is the only thing
+    # the analysis needs told, and step_ms= is the whole mechanism.
+    import analyze as _an
+    import truth as _t
     got = {}
     for tag, f in FILES:
-        A = presync.run(f, verbose=False)
-        for r in A.results:
-            got[tag + "|" + r.stream.name] = r.cls or {}
+        for s in _an.load_xdf(f):
+            got[tag + "|" + s.name] = _t.classify(
+                s.times, both_edges=s.both_edges, step_ms=5)
 
     for key, exp in EXPECTED.items():
         c = got.get(key)

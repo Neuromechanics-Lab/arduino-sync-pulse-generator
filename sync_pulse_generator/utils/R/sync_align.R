@@ -16,7 +16,7 @@
 # ===========================================================================
 # R has no native uint32; we use doubles with manual 32-bit masking.
 
-STEP_MS <- 1   # config.h DURATION_STEP_MS (protocol 3; was 5)
+STEP_MS <- 0.25   # 0.25 current firmware; pass 5 for early recordings
 
 xorshift32_new <- function(seed = 42) {
   if (seed == 0) seed <- 1

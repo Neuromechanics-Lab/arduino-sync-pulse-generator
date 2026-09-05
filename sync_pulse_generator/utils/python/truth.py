@@ -202,7 +202,15 @@ class TruthReport:
 # this, so it is the natural unit for timing error: a recorder inside +/-0.5
 # units can never be assigned to the wrong tick, whatever the millisecond
 # figure happens to be.
-STEP_MS = 1.0   # config.h DURATION_STEP_MS (protocol 3; was 5.0)
+# Duration quantum in ms. Used for TWO things, and both follow step_ms=:
+#   * regenerating the template -- must match the recording or the waveform
+#     simply differs
+#   * the "quanta" and on-tick figures, which express error as a fraction of
+#     the smallest step the generator can emit
+#
+#   0.25  current firmware
+#   5     early recordings (pure square wave, no timecode)
+STEP_MS = 0.25
 
 # A transition off by more than this many quanta is not jitter — it is a
 # single corrupted timestamp, and averaging it into a standard deviation
@@ -241,7 +249,8 @@ def classify(edge_times, both_edges=True, **kw):
     if not r.locked:
         return {"locked": False, "note": r.note}
 
-    T = _template(both_edges, kw.get("seed", SEED), kw.get("hours", SEARCH_HOURS))
+    T = _template(both_edges, kw.get("seed", SEED), kw.get("hours", SEARCH_HOURS),
+                  kw.get("step_ms"))
     pred = np.asarray(edge_times, float) - r._lock_off
     pred.sort()
     tr = T[(T >= pred[0]) & (T <= pred[-1])]
@@ -278,7 +287,9 @@ def classify(edge_times, both_edges=True, **kw):
             else:
                 isolated += [float(x) for x in g]
 
-    gross_m = np.abs(res) > GROSS_UNITS * STEP_MS
+    _sm = kw.get('step_ms')
+    unit = STEP_MS if _sm is None else float(_sm)
+    gross_m = np.abs(res) > GROSS_UNITS * unit
     clean = res[~gross_m]
 
     return {
@@ -288,9 +299,9 @@ def classify(edge_times, both_edges=True, **kw):
         "drift_ppm": float(slope * 1e6),
         "jitter_sd_ms": float(clean.std()),
         "jitter_max_ms": float(np.abs(clean).max()) if len(clean) else float("nan"),
-        "jitter_sd_units": float(clean.std() / STEP_MS),
-        "jitter_max_units": float(np.abs(clean).max() / STEP_MS) if len(clean) else float("nan"),
-        "within_half_unit_pct": float(100 * np.mean(np.abs(clean) < STEP_MS / 2)),
+        "jitter_sd_units": float(clean.std() / unit),
+        "jitter_max_units": float(np.abs(clean).max() / unit) if len(clean) else float("nan"),
+        "within_half_unit_pct": float(100 * np.mean(np.abs(clean) < unit / 2)),
         "n_gross": int(gross_m.sum()),
         "gross_at_s": [float(t) for t in matched[gross_m]],
         "gross_ms": [float(v) for v in res[gross_m]],
@@ -338,15 +349,16 @@ def report(c, name=""):
 _TEMPLATE_CACHE = {}
 
 
-def _template(both_edges=True, seed=SEED, hours=SEARCH_HOURS):
+def _template(both_edges=True, seed=SEED, hours=SEARCH_HOURS, step_ms=None):
     # Cached: the template depends only on (seed, duration, polarity) and is
     # identical for every stream in a session. Regenerating six hours of it
     # per stream cost 1.5 s each and dominated the runtime — eight streams
     # spent more time rebuilding the same array than analysing the data.
-    key = (bool(both_edges), seed, hours)
+    key = (bool(both_edges), seed, hours, step_ms)
     if key in _TEMPLATE_CACHE:
         return _TEMPLATE_CACHE[key]
     times, levels = tc.generate_template(
+        step_ms=STEP_MS if step_ms is None else step_ms,
         seed=seed, duration_s=hours * 3600,
         min_high=MIN_HIGH_MS, max_high=MAX_HIGH_MS,
         min_low=MIN_LOW_MS, max_low=MAX_LOW_MS,
@@ -432,7 +444,8 @@ def _locate(e, T, chunk=CHUNK, ratio_tol=RATIO_TOL, match_s=MATCH_WINDOW_S):
 
 
 def score(edge_times, both_edges=True, seed=SEED, hours=SEARCH_HOURS,
-          match_s=MATCH_WINDOW_S, upto_s=None, guard_s=1.0) -> TruthReport:
+          match_s=MATCH_WINDOW_S, upto_s=None, guard_s=1.0,
+          step_ms=None) -> TruthReport:
     """Judge one recording against the emitted waveform.
 
     both_edges: False for a trigger line that logs only rising transitions.
@@ -448,7 +461,7 @@ def score(edge_times, both_edges=True, seed=SEED, hours=SEARCH_HOURS,
         r.note = f"only {len(e)} transitions; need at least {CHUNK+2}"
         return r
 
-    T = _template(both_edges, seed, hours)
+    T = _template(both_edges, seed, hours, step_ms)
     loc = _locate(e, T, match_s=match_s)
     if loc is None:
         r.note = (f"no part of this recording matches {hours:g} h of the "
