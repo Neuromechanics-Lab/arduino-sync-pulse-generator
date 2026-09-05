@@ -27,6 +27,9 @@
 #include <EEPROM.h>
 #include "config.h"
 
+void stopEmitting();
+void startEmitting();
+
 // ---- Pin setup ----
 // Pro Micro (BOARD_PRO_MICRO): 18 pins — 0-10, 14-16, A0-A3
 // Leonardo (default):          20 pins — 0-13, A0-A5
@@ -268,6 +271,7 @@ void setOutput(bool state) {
 
 // (Re)start a fresh run: re-seed, outputs LOW, new run ID.
 void startNewRun() {
+  startEmitting();
 #if EVENT_CHANNEL_ENABLED
   // Event numbering is per-run: event 3 of run 7 is unambiguous, and a
   // counter that carried across runs would not be.
@@ -622,7 +626,7 @@ void processCommand(const char* cmd) {
   }
   else if (strcmp(token, "stop") == 0) {
     running = false;
-    setOutput(LOW);
+    stopEmitting();
     Serial.println(F("Stopped"));
   }
   else if (strcmp(token, "restart") == 0) {
@@ -708,13 +712,35 @@ void processCommand(const char* cmd) {
 // lands on the tick, not at the end of an accumulating error.
 volatile uint32_t edgeRemainingTicks = 0;   // ticks still to wait
 volatile bool     timerArmed = false;
+// Set by the ISR when a train edge is due, so the main loop can do the
+// bookkeeping (frames, PRNG draws) that is too slow for interrupt context.
+volatile bool     edgeFired = false;
 
 #define TIMER_MAX_TICKS 60000UL   // < 65535, leaves headroom for the reload
 
+// Arm the next chunk of the current wait.
+//
+// OCR3A MUST NOT BE ZERO. In CTC mode a compare value of 0 with TCNT3 at 0
+// matches on essentially every tick, so the ISR re-enters at ~2 MHz: the main
+// loop never runs, USB stops being serviced and the board drops off the bus
+// while the pins keep toggling. That presents as a box that blinks but cannot
+// be talked to, stops at random, and shows a dim flicker instead of a clean
+// off -- all one bug.
+//
+// A zero chunk arises whenever a wait divides exactly into TIMER_MAX_TICKS,
+// which is common: any duration that is a whole number of chunks. Clamping to
+// a minimum of 1 costs at most half a microsecond of accuracy and removes the
+// failure entirely.
 static inline void armTimer() {
-  uint16_t chunk = (edgeRemainingTicks > TIMER_MAX_TICKS)
-                 ? (uint16_t)TIMER_MAX_TICKS : (uint16_t)edgeRemainingTicks;
-  edgeRemainingTicks -= chunk;
+  uint32_t remaining = edgeRemainingTicks;
+  uint16_t chunk;
+  if (remaining > TIMER_MAX_TICKS) {
+    chunk = (uint16_t)TIMER_MAX_TICKS;
+  } else {
+    chunk = (uint16_t)remaining;
+    if (chunk < 1) chunk = 1;          // never 0 -- see above
+  }
+  edgeRemainingTicks = (remaining > chunk) ? (remaining - chunk) : 0;
   TCNT3 = 0;
   OCR3A = chunk;
   timerArmed = true;
@@ -730,6 +756,32 @@ void scheduleEdgeUs(uint32_t us) {
   SREG = sreg;
 }
 
+// Stop the edge timer and park the outputs LOW.
+//
+// Without this the compare interrupt keeps firing after a run stops. Nothing
+// consumes the events -- the loop gates on `running` -- but the ISR is still
+// scheduling, and any path that sets `running` true again finds a stale
+// `nextToggleTime` in the past and a pending edge, so the outputs move before
+// a segment has been scheduled. On the panel that shows as an LED that is not
+// properly off in TRIG RUN: dim, or flickering, instead of dark.
+void stopEmitting() {
+  uint8_t sreg = SREG; cli();
+  TIMSK3 &= ~_BV(OCIE3A);      // disarm the compare interrupt
+  edgeRemainingTicks = 0;
+  timerArmed = false;
+  edgeFired = false;
+  SREG = sreg;
+  setOutput(LOW);              // LED and every channel genuinely off
+}
+
+// Re-arm after stopEmitting().
+void startEmitting() {
+  uint8_t sreg = SREG; cli();
+  edgeFired = false;
+  TIMSK3 |= _BV(OCIE3A);
+  SREG = sreg;
+}
+
 void timerInit() {
   uint8_t sreg = SREG; cli();
   TCCR3A = 0;
@@ -740,10 +792,6 @@ void timerInit() {
   TIMSK3 = _BV(OCIE3A);
   SREG = sreg;
 }
-
-// Set by the ISR when a train edge has been emitted, so the main loop can do
-// the bookkeeping (frames, PRNG draws) that is too slow for interrupt context.
-volatile bool edgeFired = false;
 
 ISR(TIMER3_COMPA_vect) {
   if (edgeRemainingTicks) { armTimer(); return; }   // long wait, another chunk
@@ -847,7 +895,7 @@ void serviceTrigger() {
     trigMode = nowTrig;
     if (trigMode) {
       running = false;
-      setOutput(LOW);
+      stopEmitting();
       trigLowSince = 0;
       trigWasHigh = digitalRead(TRIG_IN_PIN) != LOW;
       Serial.println(F("TRIG mode: outputs held LOW, waiting for TRIG IN"));
@@ -872,7 +920,7 @@ void serviceTrigger() {
       Serial.println(F("Gate HIGH: running"));
     } else if (!level && running) {
       running = false;
-      setOutput(LOW);
+      stopEmitting();
       Serial.println(F("Gate LOW: stopped"));
     }
     trigWasHigh = level;
@@ -899,7 +947,7 @@ void serviceTrigger() {
         Serial.println(F("Triggered!"));
       } else if (trigMode_cfg == TRIG_MODE_EDGE_TOGGLE) {
         running = false;
-        setOutput(LOW);
+        stopEmitting();
         Serial.println(F("Triggered: stopped"));
       } else {
         Serial.print(F("Event "));
