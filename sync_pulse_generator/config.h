@@ -35,14 +35,33 @@
 // version is reported in the config AND is implicit in the timecode frame
 // layout itself.
 #define FW_VERSION        "2.0.0"
-#define PROTOCOL_VERSION  4      // 1 = pre-event-channel
-                                 // 2 = adds the event channel and its 8-bit
-                                 //     marker payload
-                                 // 3 = DURATION_STEP_MS 5 -> 1
-                                 // 4 = 250 us quantum, timer-driven emission,
-                                 //     8 panel outputs. A decoder built for 3
-                                 //     regenerates a different waveform and
-                                 //     will not lock.
+#define PROTOCOL_VERSION  4
+// Protocol history, reconstructed from the repository rather than from
+// memory. The numbers are assigned retrospectively to versions that SHIPPED,
+// so a recording can be matched to the firmware that made it:
+//
+//   1  64e548d..c9abef0  Feb-Jun 2026.  Pure pseudo-random train, 5 ms steps,
+//                        50-500 ms, seed 42. No timecode, no event channel.
+//                        Recordings from this era have no embedded position;
+//                        they can only be located by fingerprint.
+//   2  63b72e9..25015f1  Aug-Sep 2026.  Adds timecode frames: the train is
+//                        interrupted every 10 s by a 52-bit frame carrying
+//                        run ID and elapsed seconds. A protocol-1 decoder
+//                        reads these frames as corrupt train segments.
+//   3  6844f39..f4d79c9  Sep 2026.  Adds the event channel on its own output
+//                        with an 8-bit marker payload. The TRAIN is unchanged,
+//                        so a protocol-2 decoder still locks -- it simply does
+//                        not know the event channel exists.
+//   4  df48b76 onward.   250 us quantum (was 5 ms), timer-driven emission,
+//                        8 panel outputs. This one DOES break older decoders:
+//                        the same seed now yields a different waveform.
+//
+// The 1 ms step in b698f0c never shipped -- it existed for one commit inside
+// a single session and no recording was made on it, so it gets no number.
+//
+// NOTE ON VARIANTS: the protocol is the SIGNAL, not the build. sync_pulse_
+// freerun (TRIG_FEATURE 0) and the Pro Micro / Leonardo pin sets all emit
+// protocol 4; they differ in which pins carry it, which is HW_VARIANT's job.
 #define FW_DATE           __DATE__
 
 #ifdef BOARD_PRO_MICRO
