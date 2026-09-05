@@ -167,18 +167,18 @@ uint32_t prngNext() {
   return prngState;
 }
 
-unsigned long randomDuration(unsigned long minMs, unsigned long maxMs) {
-  if (minMs >= maxMs) return minMs;
-  uint32_t steps = (maxMs - minMs) / DURATION_STEP_MS + 1;
-  return minMs + (prngNext() % steps) * DURATION_STEP_MS;
+// Durations are computed and scheduled in MICROSECONDS. The configured
+// min/max stay in ms because that is how they are set and reported.
+uint32_t randomDurationUs(unsigned long minMs, unsigned long maxMs) {
+  if (minMs >= maxMs) return minMs * 1000UL;
+  uint32_t lo = minMs * 1000UL, hi = maxMs * 1000UL;
+  uint32_t steps = (hi - lo) / DURATION_STEP_US + 1;
+  return lo + (prngNext() % steps) * DURATION_STEP_US;
 }
 
-unsigned long computeNextDuration() {
-  if (outputState == HIGH) {
-    return randomDuration(minHighMs, maxHighMs);
-  } else {
-    return randomDuration(minLowMs, maxLowMs);
-  }
+uint32_t computeNextDurationUs() {
+  return (outputState == HIGH) ? randomDurationUs(minHighMs, maxHighMs)
+                               : randomDurationUs(minLowMs, maxLowMs);
 }
 
 #if EVENT_CHANNEL_ENABLED
@@ -242,12 +242,20 @@ void serviceEventChannel() {
 }
 #endif  // EVENT_CHANNEL_ENABLED
 
+// ---- Output: two port writes, not eight digitalWrite() calls ---------------
+// Called from the ISR, so it must be fast and it must not touch pins outside
+// the masks -- other bits on these ports belong to the trigger inputs, the
+// event channel and USB.
+inline void writeOutputs(bool state) {
+  uint8_t d = OUT_PORTD_MASK;
+  uint8_t b = OUT_PORTB_MASK | PANEL_LED_MASK;   // the panel LED mirrors the train
+  if (state) { PORTD |= d;  PORTB |= b; }
+  else       { PORTD &= ~d; PORTB &= ~b; }
+}
+
 void setOutput(bool state) {
   outputState = state;
-  for (int i = 0; i < NUM_PINS; i++) {
-    if (isReservedPin(OUTPUT_PINS[i])) continue;
-    digitalWrite(OUTPUT_PINS[i], state);
-  }
+  writeOutputs(state);
 }
 
 // (Re)start a fresh run: re-seed, outputs LOW, new run ID.
@@ -324,18 +332,23 @@ void enterLeadIn() {
 // ALWAYS happens (reproducibility); the segment is clamped to end at the
 // lead-in start if it would cross it.
 void schedulePrSegment() {
-  unsigned long d = computeNextDuration();
+  // The draw ALWAYS happens, even if the segment is then clamped: the PRNG
+  // sequence must not depend on where frames fall, or the waveform stops
+  // being reproducible from (seed, config).
+  uint32_t dUs = computeNextDurationUs();
   unsigned long now = millis();
   if (tcEnabled) {
     long remaining = (long)(nextFrameDueMs - TC_LEADIN_MS - now);
-    if (remaining <= 0) { enterLeadIn(); return; }          // loop ran late
-    if ((long)d > remaining) {
+    if (remaining <= 0) { enterLeadIn(); return; }          // ran late
+    if ((long)(dUs / 1000UL) > remaining) {
       nextToggleTime = now + remaining;
       leadinPending = true;
+      scheduleEdgeUs((uint32_t)remaining * 1000UL);
       return;
     }
   }
-  nextToggleTime = now + d;
+  nextToggleTime = now + (dUs / 1000UL);
+  scheduleEdgeUs(dUs);
 }
 
 // Next frame tick strictly ahead of now (+lead-in) on the run's interval
@@ -381,18 +394,18 @@ void printConfig() {
   // Only the pins actually carrying the train. Printing the raw array listed
   // the reserved trigger pins and the event channel as sync outputs, which is
   // exactly the sort of thing someone wires a BNC to and then cannot explain.
-  Serial.print(F("  Sync pins:"));
   {
-    bool first = true;
-    for (int i = 0; i < NUM_PINS; i++) {
-      if (isReservedPin(OUTPUT_PINS[i])) continue;
-      if (!first) Serial.print(F(","));
-      Serial.print(F(" "));
-      Serial.print(OUTPUT_PINS[i]);
-      first = false;
+    const uint8_t panel[] = PANEL_PINS;
+    Serial.print(F("  Sync pins:"));
+    for (uint8_t i = 0; i < sizeof(panel); i++) {
+      if (i) Serial.print(F(","));
+      Serial.print(F(" ")); Serial.print(panel[i]);
     }
+    Serial.println(F("   (2 port writes, ~0.13 us sweep)"));
   }
-  Serial.println();
+  Serial.print(F("  Panel LED: ")); Serial.println(PANEL_LED_PIN);
+  Serial.print(F("  Quantum:   ")); Serial.print(DURATION_STEP_US);
+  Serial.println(F(" us, Timer3 compare-match (~1 us ISR latency)"));
 #if EVENT_CHANNEL_ENABLED
   Serial.print(F("  Event pin: "));
   Serial.println(EVENT_CHANNEL_PIN);
@@ -615,6 +628,60 @@ void processCommand(const char* cmd) {
 
 // ---- Arduino lifecycle ----
 
+// ---- Timer3: the emission clock --------------------------------------------
+// Free-running at 0.5 us per tick with the next edge scheduled on compare
+// match. Everything the ISR needs is prepared outside it; the ISR itself only
+// flips the pins, advances the state machine and arms the next compare.
+//
+// The compare value is 16-bit, so a single wait is capped at 32.7 ms. Longer
+// intervals -- a 500 ms pulse is 15 of them -- are counted down in whole
+// chunks. This keeps the LAST chunk exact, which is what matters: the edge
+// lands on the tick, not at the end of an accumulating error.
+volatile uint32_t edgeRemainingTicks = 0;   // ticks still to wait
+volatile bool     timerArmed = false;
+
+#define TIMER_MAX_TICKS 60000UL   // < 65535, leaves headroom for the reload
+
+static inline void armTimer() {
+  uint16_t chunk = (edgeRemainingTicks > TIMER_MAX_TICKS)
+                 ? (uint16_t)TIMER_MAX_TICKS : (uint16_t)edgeRemainingTicks;
+  edgeRemainingTicks -= chunk;
+  TCNT3 = 0;
+  OCR3A = chunk;
+  timerArmed = true;
+}
+
+// Schedule the next edge `us` microseconds from now.
+void scheduleEdgeUs(uint32_t us) {
+  uint32_t ticks = us * TICKS_PER_US;
+  if (ticks < 2) ticks = 2;
+  uint8_t sreg = SREG; cli();
+  edgeRemainingTicks = ticks;
+  armTimer();
+  SREG = sreg;
+}
+
+void timerInit() {
+  uint8_t sreg = SREG; cli();
+  TCCR3A = 0;
+  TCCR3B = _BV(WGM32) | _BV(CS31);   // CTC on OCR3A, prescaler 8
+  TCCR3C = 0;
+  TCNT3  = 0;
+  OCR3A  = 0xFFFF;
+  TIMSK3 = _BV(OCIE3A);
+  SREG = sreg;
+}
+
+// Set by the ISR when a train edge has been emitted, so the main loop can do
+// the bookkeeping (frames, PRNG draws) that is too slow for interrupt context.
+volatile bool edgeFired = false;
+
+ISR(TIMER3_COMPA_vect) {
+  if (edgeRemainingTicks) { armTimer(); return; }   // long wait, another chunk
+  timerArmed = false;
+  edgeFired = true;
+}
+
 void setup() {
   for (int i = 0; i < NUM_PINS; i++) {
     if (isReservedPin(OUTPUT_PINS[i])) continue;
@@ -622,10 +689,12 @@ void setup() {
     digitalWrite(OUTPUT_PINS[i], LOW);
   }
 #if TRIG_FEATURE
+  timerInit();
 #if EVENT_CHANNEL_ENABLED
   pinMode(EVENT_CHANNEL_PIN, OUTPUT);
   digitalWrite(EVENT_CHANNEL_PIN, LOW);
 #endif
+  pinMode(PANEL_LED_PIN, OUTPUT);
   pinMode(TRIG_IN_PIN, INPUT_PULLUP);
   pinMode(MODE_SWITCH_PIN, INPUT_PULLUP);
 #endif
@@ -770,7 +839,13 @@ void loop() {
     }
   }
 
-  if (running && millis() >= nextToggleTime) {
+  // A train segment is due when the TIMER says so; frame and marker segments
+  // remain millis()-scheduled, since their symbols are whole milliseconds and
+  // their accuracy is not what the analysis leans on. Consuming edgeFired
+  // here keeps the two paths from racing.
+  bool timerDue = false;
+  if (edgeFired) { uint8_t sr = SREG; cli(); edgeFired = false; SREG = sr; timerDue = true; }
+  if (running && (timerDue || millis() >= nextToggleTime)) {
     if (mode == MODE_MARK) {
       // Marker pulse just ended: hold LOW for the configured pause. The run
       // clock is already running from the marker's leading edge, so timecode
@@ -778,6 +853,7 @@ void loop() {
       mode = MODE_MARKPAUSE;
       setOutput(LOW);
       nextToggleTime = millis() + leadinPauseMs;
+      scheduleEdgeUs((uint32_t)leadinPauseMs * 1000UL);
     } else if (mode == MODE_MARKPAUSE) {
       // Pause over: begin the pseudo-random train.
       mode = MODE_PR;

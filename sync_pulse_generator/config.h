@@ -34,13 +34,15 @@
 // often recorded by devices that never see the serial port, the protocol
 // version is reported in the config AND is implicit in the timecode frame
 // layout itself.
-#define FW_VERSION        "1.2.0"
-#define PROTOCOL_VERSION  3      // 1 = pre-event-channel
+#define FW_VERSION        "2.0.0"
+#define PROTOCOL_VERSION  4      // 1 = pre-event-channel
                                  // 2 = adds the event channel and its 8-bit
                                  //     marker payload
-                                 // 3 = DURATION_STEP_MS 5 -> 1. A decoder
-                                 //     built for 2 regenerates a different
-                                 //     waveform and will not lock.
+                                 // 3 = DURATION_STEP_MS 5 -> 1
+                                 // 4 = 250 us quantum, timer-driven emission,
+                                 //     8 panel outputs. A decoder built for 3
+                                 //     regenerates a different waveform and
+                                 //     will not lock.
 #define FW_DATE           __DATE__
 
 #ifdef BOARD_PRO_MICRO
@@ -50,6 +52,24 @@
 #endif
 
 
+
+// ---- Emission timing --------------------------------------------------------
+// Edges are placed by a Timer3 compare-match ISR, not by polling millis() in
+// the main loop. This matters more than the quantum does.
+//
+// Polling puts the edge wherever the loop happens to reach it: 0 to 200+ us
+// late, varying with serial traffic and whatever else the loop is doing. Using
+// micros() instead of millis() does not fix that -- it changes what can be
+// EXPRESSED, not when the pin actually moves.
+//
+// A compare match fires in hardware. The only delay is ISR entry, about 17
+// cycles at 62.5 ns = ~1.06 us, and it is CONSTANT, so it is a fixed offset
+// rather than jitter. That is ~240x finer than the 250 us quantum.
+//
+// TIMER3 rather than Timer1: Timer1 is what most libraries grab (Servo, tone,
+// PWM on some pins) and Timer3 is otherwise unused on the 32U4.
+#define TIMER_PRESCALE      8      // 16 MHz / 8 -> 0.5 us per tick
+#define TICKS_PER_US        2      // ...so 2 ticks per microsecond
 
 // ---- Output Pins ----
 // Pin count differs by board; see the per-board section below.
@@ -78,6 +98,35 @@
   #define NUM_OUTPUT_PINS 20
 #endif
 
+// ---- The eight panel outputs ------------------------------------------------
+// Eight, because that is what the enclosure exposes. Chosen so all eight sit on
+// just TWO AVR ports, which lets the ISR flip them with two register writes
+// instead of eight digitalWrite() calls.
+//
+// That is not a micro-optimisation. digitalWrite() is ~4.4 us each, so eight
+// of them sweep 35 us from first channel to last -- 14% of a 250 us quantum,
+// and a real skew between two devices fed from different BNCs. Two port writes
+// take ~0.13 us total, which is 60x better and below anything measurable.
+//
+// The masks are the reason the pin sets differ per board: pins 11/12 are not
+// broken out on a Pro Micro, 14/15 are not on a Leonardo.
+#ifdef BOARD_PRO_MICRO
+  // PORTD: 0(D2) 1(D3) 4(D4) 6(D7)   PORTB: 8(B4) 10(B6) 14(B3) 15(B1)
+  #define OUT_PORTD_MASK  0x9C
+  #define OUT_PORTB_MASK  0x5A
+  #define PANEL_PINS      {0, 1, 4, 6, 8, 10, 14, 15}
+#else
+  // PORTD: 0(D2) 1(D3) 4(D4) 6(D7) 12(D6)   PORTB: 8(B4) 10(B6) 11(B7)
+  #define OUT_PORTD_MASK  0xDC
+  #define OUT_PORTB_MASK  0xD0
+  #define PANEL_PINS      {0, 1, 4, 6, 8, 10, 11, 12}
+#endif
+
+// Panel indicator LED. Mirrors the train so the box shows it is running.
+// On PORTB so it folds into the existing port write at no extra cost.
+#define PANEL_LED_PIN     16
+#define PANEL_LED_MASK    0x04     // PB2
+
 // ---- Timing Defaults (milliseconds) ----
 // HIGH duration range: how long the signal stays at 5V
 #define DEFAULT_MIN_HIGH_MS  50
@@ -104,7 +153,17 @@
 //
 // The reserved-gap rule is unaffected -- it depends on the 50 ms MINIMUM
 // duration versus the 30 ms longest frame interval, not on the step.
-#define DURATION_STEP_MS  1
+// Expressed in MICROSECONDS since the emission is timer-driven. 250 us is
+// one sample at 4 kHz, the fastest recorder in use, so it is the finest step
+// anything can actually resolve. Going finer costs nothing but buys nothing.
+//
+// A finer step never hurts a slow recorder: a 30 fps camera aligns on the
+// 50-500 ms pulse PATTERN and never observes the quantum at all. What the
+// step controls is fingerprint entropy -- 1801 distinct durations per draw at
+// 250 us, against 91 at the original 5 ms -- which is what makes a short probe
+// unique and a dropout survivable.
+#define DURATION_STEP_US  250
+#define DURATION_STEP_MS  (DURATION_STEP_US / 1000.0)
 
 // ---- PRNG Seed ----
 // Fixed seed for reproducible patterns.
