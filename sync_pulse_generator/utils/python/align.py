@@ -944,20 +944,31 @@ def lock_source(src: Source, tmpl: dict, tol_s: float = INTERVAL_TOL_S) -> Fit:
     if len(good) >= 2:
         jumps = np.flatnonzero(np.abs(np.diff(offs)) > STEP_THRESHOLD_S)
         bounds = [0] + [int(j) + 1 for j in jumps] + [len(good)]
+        # A segment built from a SINGLE anchor is not evidence of anything.
+        # Its rate is assumed 1.0 and its offset is whatever that one window
+        # happened to report, so a lone anchor that mislocked -- which a hole
+        # in the data makes likely, since a window straddling the gap sees a
+        # pattern that matches elsewhere -- becomes a segment with an
+        # arbitrary offset, and that offset is then reported as a pair of
+        # equal-and-opposite drops bracketing it. Requiring at least two
+        # anchors means every segment has a fitted rate and a median offset
+        # over real data.
+        MIN_ANCHORS = 2
+        kept = []
         for a, b in zip(bounds[:-1], bounds[1:]):
-            if b - a < 1:
+            if b - a < MIN_ANCHORS:
                 continue
-            if b - a >= 2:
-                rate = float(np.polyfit(tl[a:b], tg[a:b], 1)[0])
-            else:
-                rate = 1.0
+            rate = float(np.polyfit(tl[a:b], tg[a:b], 1)[0])
             offset = float(np.median(tg[a:b] - rate * tl[a:b]))
             t_end = tl[b - 1] if b < len(good) else float(src_edges[-1])
             segments.append((float(tl[a]), float(t_end), offset, rate))
-        for k, j in enumerate(jumps):
-            if k + 1 < len(segments):
-                drops.append((float(tl[j + 1]),
-                              float((segments[k+1][2] - segments[k][2]) * 1000)))
+            kept.append(a)
+        # Drops describe the boundary between segments that SURVIVED, so they
+        # are derived from the kept list rather than from the raw jump indices.
+        for k in range(len(segments) - 1):
+            step = (segments[k + 1][2] - segments[k][2]) * 1000
+            if abs(step) >= STEP_THRESHOLD_S * 1000:
+                drops.append((float(tl[kept[k + 1]]), float(step)))
 
     if not segments:
         segments = [(float(src_edges[0]), float(src_edges[-1]),
