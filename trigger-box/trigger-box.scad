@@ -183,6 +183,14 @@ key_pad_h  = 3;     // added thickness (lid wall 3 -> 6 at the pads)
 key_head_d = 8.6;   // clears an M4 / #8 screw head
 key_slot_w = 4.5;   // shank slot
 key_slide  = 9;     // slot length; slots point toward the box front
+// Counterbore on the OUTSIDE face, so a mounted screw head sits BELOW the
+// lid's outer surface. Without it the head stands proud of an otherwise flat
+// bottom and the box rocks on two screw heads whenever it is set on a bench —
+// the mount is only used on a wall, but the box spends most of its life on a
+// table. Depth is most of the wall; the remaining material still carries the
+// slot, which is what takes the load once the screw slides home.
+key_cbore_d = 15;   // clears the head plus the driver's reach
+key_cbore_h = 2.0;  // of wall = 3, leaving 1 mm under the slot
 
 // ---- Labels (all INSET) -----------------------------------------------------
 label_size   = 4.6;
@@ -366,6 +374,14 @@ module face_art_model() {
 }
 
 // ---- Lid (bottom when deployed) with keyhole mounts -------------------------
+// The keyhole pads go on the INSIDE face, not the outside.
+//
+// Outside, they are two 3 mm bosses standing proud of an otherwise flat
+// bottom, so a box set down on a bench rocks on them. Inside, the outer face
+// stays flat and the pad still does its job: it is there to give the screw
+// head somewhere to sit and to thicken the wall around the keyhole, and it
+// does that from either side. The lip already sets the interior clearance, so
+// the pads sit within it and do not foul the frame.
 module lid_part() {
   difference() {
     union() {
@@ -383,7 +399,10 @@ module lid_part() {
       offset(r = label_fat)
         text("PRE-Sync v1 — 2026", size = 3.2, font = label_font,
              halign = "center", valign = "center");
-    // keyholes: head hole + shank slot pointing toward the box FRONT
+    // keyholes: head hole + shank slot pointing toward the box FRONT.
+    // The counterbore is cut from the outside face (z=0) and swept along the
+    // slot, so the head stays recessed through the full travel rather than
+    // only where it drops in.
     for (s = [-1, 1]) {
       translate([s*key_x, 0, -0.5])
         cylinder(d = key_head_d, h = wall + key_pad_h + 1);
@@ -391,6 +410,10 @@ module lid_part() {
         hull() for (yy = [0, -key_slide])
           translate([0, yy, -0.5])
             cylinder(d = key_slot_w, h = wall + key_pad_h + 1);
+      translate([s*key_x, 0, -0.01])
+        hull() for (yy = [0, -key_slide])
+          translate([0, yy, 0])
+            cylinder(d = key_cbore_d, h = key_cbore_h + 0.01);
     }
   }
 }

@@ -62,13 +62,28 @@ key_slide  = 9;
 key_pad_d  = 16;
 key_pad_h  = 3;
 
-// gooseneck: 1/4"-20 male ends (the common mic/lamp gooseneck thread).
-// Each end screws into a 1/4"-20 HEAT-SET BRASS INSERT (VERIFY your insert's
-// OD; ~7.9-8.0 mm inserts want a 7.6 mm hole)
-gn_thread_d  = 6.9;   // wire passage / thread clearance beyond the insert
-gn_insert_d  = 7.6;
+// ---- Gooseneck mount --------------------------------------------------------
+// 1/4"-20 male ends (the common mic/lamp gooseneck thread), screwing into a
+// HEAT-SET BRASS INSERT at each end. gn_insert_d is the hole for the INSERT,
+// not for the thread.
+//
+// BOTH ENDS USE THE SAME MOUNT. The LED head and the puck base take an
+// identical insert, so the gooseneck screws into either and the two are
+// interchangeable — one spare gooseneck fits everything, and there is no
+// handedness to get wrong during assembly.
+//
+// The measured 12.75 mm barrel on some goosenecks is the knurled COLLAR that
+// sits against the mounting surface, not a spigot to be bored for. The thread
+// is what carries the load; the collar just bottoms out. boss_d is sized to
+// give that collar a flat landing without the boss becoming a bore.
+gn_thread_d  = 6.9;    // wire passage / thread clearance beyond the insert
+gn_insert_d  = 7.6;    // VERIFY your insert's OD (~7.9-8.0 mm wants 7.6)
 gn_insert_h  = 10;
-boss_d       = 20;
+gn_collar_d  = 12.75;  // knurled collar that lands on the boss face
+
+// The boss face must be wider than the collar so the collar seats flat on it
+// rather than overhanging an edge.
+boss_d = gn_collar_d + 2*4;   // 20.75 -> 4 mm of landing all round
 
 // active buzzer (VERIFY against the part you buy)
 buzzer_d    = 23.5;   // 23mm 5V active piezo — loud, sounds while HIGH
@@ -188,6 +203,11 @@ module top_gain() {
 // Prints flat, boss up. Insert goes in from the top with a soldering iron;
 // the gooseneck's male end screws into it, wires pass down through the plate.
 boss_h = gn_insert_h + 2;
+// LED puck top: carries the gooseneck. Wires run up the inside of the
+// gooseneck, so every mount style needs a through passage to the puck cavity.
+// LED puck top: carries the gooseneck on the SAME insert the LED head uses,
+// so one gooseneck fits either end. Wires run up inside the gooseneck, so the
+// bore continues through the plate into the puck cavity.
 module top_led() {
   difference() {
     union() {
@@ -195,8 +215,9 @@ module top_led() {
       translate([0, 0, wall]) cylinder(d = boss_d, h = boss_h);
     }
     plate_screws();
-    translate([0, 0, wall + boss_h - gn_insert_h]) cylinder(d = gn_insert_d, h = gn_insert_h + 0.01);
-    translate([0, 0, -0.5]) cylinder(d = gn_thread_d, h = wall + boss_h + 1);   // wire passage
+    translate([0, 0, wall + boss_h - gn_insert_h])
+      cylinder(d = gn_insert_d, h = gn_insert_h + 0.01);
+    translate([0, 0, -0.5]) cylinder(d = gn_thread_d, h = wall + boss_h + 1);
     top_deboss() translate([0, -22]) fat_text("LED", 3.6);
   }
 }
