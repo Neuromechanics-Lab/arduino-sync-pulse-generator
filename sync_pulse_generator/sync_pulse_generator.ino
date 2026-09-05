@@ -404,19 +404,31 @@ void printConfig() {
   // exactly the sort of thing someone wires a BNC to and then cannot explain.
   {
     const uint8_t panel[] = PANEL_PINS;
-    Serial.print(F("  Sync pins:"));
-    for (uint8_t i = 0; i < sizeof(panel); i++) {
-      if (i) Serial.print(F(","));
-      Serial.print(F(" ")); Serial.print(panel[i]);
+    const uint8_t n = sizeof(panel);
+    Serial.print(F("  BNC 1-"));
+    Serial.print(n);
+    Serial.print(F(":  "));
+    for (uint8_t i = 0; i < n; i++) {
+      if (i) Serial.print(F(", "));
+      Serial.print(panel[i]);
+#if EVENT_CHANNEL_ENABLED
+      if (panel[i] == EVENT_CHANNEL_PIN) Serial.print(F("=EVENT"));
+#endif
     }
-    Serial.println(F("   (2 port writes, ~0.13 us sweep)"));
+    Serial.println();
+#if EVENT_CHANNEL_ENABLED
+    Serial.print(F("  Sync:      ")); Serial.print(n - 1);
+    Serial.println(F(" channels; BNC 8 carries events"));
+#else
+    Serial.print(F("  Sync:      ")); Serial.print(n);
+    Serial.println(F(" channels; event channel off"));
+#endif
+    Serial.println(F("             2 port writes, ~0.13 us sweep"));
   }
   Serial.print(F("  Panel LED: ")); Serial.println(PANEL_LED_PIN);
   Serial.print(F("  Quantum:   ")); Serial.print(DURATION_STEP_US);
   Serial.println(F(" us, Timer3 compare-match (~1 us ISR latency)"));
 #if EVENT_CHANNEL_ENABLED
-  Serial.print(F("  Event pin: "));
-  Serial.println(EVENT_CHANNEL_PIN);
 #endif
 #if TRIG_FEATURE
   Serial.print(F("  Reserved:  "));

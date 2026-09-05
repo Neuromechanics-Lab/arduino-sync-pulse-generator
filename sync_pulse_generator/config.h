@@ -117,6 +117,12 @@
   #define NUM_OUTPUT_PINS 20
 #endif
 
+// Whether BNC 8 carries events instead of sync. Defined HERE, above the pin
+// blocks, because the port masks are computed from it -- if it is defined
+// later the preprocessor evaluates it as 0 and the masks silently come out
+// for the wrong configuration.
+#define EVENT_CHANNEL_ENABLED 1
+
 // ---- The eight panel outputs ------------------------------------------------
 // Eight, because that is what the enclosure exposes. Two constraints shape
 // which eight:
@@ -143,16 +149,28 @@
   // Right header, rows 4-11, top to bottom: A3 A2 A1 A0 | 15 14 16 10
   //   header A (rows 4-7)  = 21,20,19,18  all PORTF
   //   header B (rows 8-11) = 15,14,16,10  all PORTB
-  #define OUT_PORTF_MASK  0xF0
-  #define OUT_PORTB_MASK  0x4E
-  #define OUT_PORTD_MASK  0x00
   #define PANEL_PINS      {21, 20, 19, 18, 15, 14, 16, 10}
+  #define EVENT_CHANNEL_PIN 10       // BNC 8, the last panel position
+  #define EVENT_PORTB_MASK  0x40     // PB6
+  #define OUT_PORTF_MASK    0xF0
+  #define OUT_PORTD_MASK    0x00
+  #if EVENT_CHANNEL_ENABLED
+    #define OUT_PORTB_MASK  0x0E     // 15,14,16 -- BNC 8 carries events
+  #else
+    #define OUT_PORTB_MASK  0x4E     // 15,14,16,10 -- all eight are sync
+  #endif
 #else
   // PORTD: 0(D2) 1(D3) 4(D4) 6(D7) 12(D6)   PORTB: 8(B4) 10(B6) 11(B7)
-  #define OUT_PORTF_MASK  0x00
-  #define OUT_PORTB_MASK  0xD0
-  #define OUT_PORTD_MASK  0xDC
   #define PANEL_PINS      {0, 1, 4, 6, 8, 10, 11, 12}
+  #define EVENT_CHANNEL_PIN 12       // BNC 8, the last panel position
+  #define EVENT_PORTB_MASK  0x00     // pin 12 is PORTD, not PORTB
+  #define OUT_PORTF_MASK    0x00
+  #define OUT_PORTB_MASK    0xD0
+  #if EVENT_CHANNEL_ENABLED
+    #define OUT_PORTD_MASK  0x9C     // 0,1,4,6 -- BNC 8 carries events
+  #else
+    #define OUT_PORTD_MASK  0xDC     // 0,1,4,6,12 -- all eight are sync
+  #endif
 #endif
 
 // Panel indicator LED. Mirrors the train so the box shows it is running.
@@ -315,6 +333,12 @@
 // every trigger that arrives on TRIG IN emits a marker there. The remaining
 // outputs carry the pseudo-random train untouched.
 //
+// It is BNC 8 -- the last panel position -- not a ninth connector. The box
+// has eight outputs and a TRIG IN, and that is the whole panel. Turning the
+// event channel on converts output 8 from sync to events; turning it off
+// gives eight sync outputs again. The port masks switch with it, so the ISR
+// never drives a pin the event state machine owns.
+//
 // WHY A SEPARATE CHANNEL. The train and an event marker want opposite things.
 // The train is 50-500 ms pulses that any recorder, camera included, follows
 // easily — but interrupting it to announce an event costs template lock for
@@ -336,8 +360,6 @@
 // The whole marker is about 1250 ms. Triggers closer together than that abort
 // the payload in progress: the MARK ALWAYS FIRES, the counter is best-effort.
 // Event timing is never sacrificed to finish an identifier.
-#define EVENT_CHANNEL_ENABLED 1
-#define EVENT_CHANNEL_PIN     9    // excluded from the sync train when enabled
 #define EVENT_MARK_MS         200  // the event itself; leading edge = timestamp
 #define EVENT_GAP_MS          50   // between symbols
 #define EVENT_BIT0_MS         50   // short symbol = 0

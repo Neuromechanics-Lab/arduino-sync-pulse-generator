@@ -25,7 +25,7 @@ connectors:
       - D14
       - D16
       - D10
-      - D9 EVENT
+      - D9 (spare)
       - D2 TRIG IN
       - D3 MODE SW
       - VCC
@@ -37,16 +37,16 @@ connectors:
   OUT5:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
   OUT6:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
   OUT7:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
-  OUT8:  {type: BNC, subtype: bulkhead, pinlabels: [centre, shield]}
-
-  EVENT:
+  OUT8:
     type: BNC
     subtype: bulkhead
     pinlabels: [centre, shield]
     notes: >-
-      Event channel on its own output, separate from the eight sync BNCs.
-      Carries a marker per trigger; the mark's leading edge is the event.
-      Feed an LED converter or the 1-to-4 fan-out pod from here.
+      EVENT when the event channel is enabled, otherwise an eighth sync
+      output. The panel is eight BNCs plus TRIG IN either way -- enabling
+      events converts this position rather than adding a connector. Carries a
+      marker per trigger; the mark's leading edge is the event. Feed an LED
+      converter or the 1-to-4 fan-out pod from here.
 
   TRIG:
     type: BNC
@@ -105,12 +105,6 @@ cables:
     wirecount: 2
     gauge: 22 AWG
     colors: [RD, BK]
-
-  W_EVENT:
-    wirecount: 2
-    gauge: 24 AWG
-    colors: [WH, BK]
-    notes: Event channel. Separate from the sync train's eight conductors.
 
   W_CHASSIS:
     wirecount: 1
@@ -223,12 +217,3 @@ connections:
     - W_CHASSIS: [1]
     - MCU: [1]
 
-  # Event channel: its own output and its own BNC.
-  -
-    - MCU: [10]
-    - W_EVENT: [1]
-    - EVENT: [1]
-  -
-    - EVENT: [2]
-    - W_EVENT: [2]
-    - MCU: [1]

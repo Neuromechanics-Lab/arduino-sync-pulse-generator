@@ -1,9 +1,9 @@
 Id	Description	Qty	Unit	Designators
 1	Cable, 1 x 22 AWG	0	m	W_CHASSIS
 2	Cable, 2 x 22 AWG	0	m	W_PWR
-3	Cable, 2 x 24 AWG	0	m	W_EVENT, W_MODE, W_TRIG
+3	Cable, 2 x 24 AWG	0	m	W_MODE, W_TRIG
 4	Cable, 8 x 24 AWG	0	m	W_GND, W_OUT
-5	Connector, BNC, bulkhead, 2 pins	10		EVENT, OUT1, OUT2, OUT3, OUT4, OUT5, OUT6, OUT7, OUT8, TRIG
+5	Connector, BNC, bulkhead, 2 pins	9		OUT1, OUT2, OUT3, OUT4, OUT5, OUT6, OUT7, OUT8, TRIG
 6	Connector, DC barrel, 5.5x2.1 panel, 2 pins	1		PWR
 7	Connector, Ground screw, 10-32, 1 pins	1		GNDLUG
 8	Connector, Pro Micro ATmega32U4, male header, 13 pins	1		MCU
