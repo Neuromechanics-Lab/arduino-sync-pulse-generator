@@ -258,16 +258,23 @@ def analyze_streams(streams, chunk_s=10.0) -> Analysis:
 
         # Timecode frames are a bonus when present: absolute position and run
         # identity with no search, and natural chunk boundaries.
+        # decode_frames needs a SINGLE polarity: an interleaved both-edges
+        # list halves every interval and matches no preamble, so a both-edges
+        # stream silently decoded nothing. Try each polarity and keep whichever
+        # yields more valid frames, as align.decode_source_frames does.
         try:
-            fr = tc.decode_frames(sorted(s.times.tolist()),
-                                  edge="rising" if not s.both_edges else "rising")
-            fr = [f for f in fr if f.get("ok")]
-            if fr:
-                r.frames = fr
-                ids = [f["run_id"] for f in fr]
+            t = sorted(s.times.tolist())
+            best = []
+            for edge in ("rising", "falling"):
+                fr = [f for f in tc.decode_frames(t, edge=edge) if f.get("ok")]
+                if len(fr) > len(best):
+                    best = fr
+            if best:
+                r.frames = best
+                ids = [f["run_id"] for f in best]
                 r.run_id = max(set(ids), key=ids.count)
-        except Exception:
-            pass
+        except Exception as exc:
+            A.warnings.append(f"{s.name}: timecode decode failed ({exc})")
 
         # Interruptions in the underlying sample stream, distinct from missing
         # transitions: this says the acquisition itself stalled.

@@ -1,9 +1,18 @@
 # Alignment utilities
 
 Offline tools for aligning multi-device recordings that share the sync
-generator's square wave. Everything here exists in **MATLAB, Python, and R**
-with matching function names and behaviour — pick whichever your analysis
-already lives in.
+generator's square wave.
+
+**Python is the reference implementation.** The alignment core — template
+generation, edge detection, edge delay, timecode decoding and the N-recording
+lock — exists in **MATLAB, Python and R** with matching function names and
+behaviour, so pick whichever your analysis already lives in for that work.
+
+Several capabilities are **Python-only**, and the table at the end of this
+file marks them: the offset/drift/jitter/loss decomposition (`truth.py`), the
+one-call analysis and report (`analyze.py`), template-free pairwise diagnosis
+(`diagnose.py`), the **event-channel decoder** (`events.py`), and XDF/LSL
+loading. If your work needs those, use Python.
 
 ---
 
@@ -525,14 +534,29 @@ and cutting, not for sample-level repair.
 | Absolute alignment | `align_to_timecode` | `align_to_timecode` | `align_to_timecode` |
 | Split at run change | — | `split_runs` | `split_runs` |
 | Recreate the signal | `generate_sync_signal_tc` | `generate_template` | `generate_sync_signal_tc` |
-| **Align N recordings** | `align_sources` | `align_recordings` | `align_recordings_tc` |
+| **Align N recordings** (entry point) | `align_sources` | `align_recordings` | `align_recordings_tc` |
 | Build one source | `source_from_*` | `Source.from_*` | `source_from_*` |
 | Lock one recording | `align_lock` | `lock_source` | `align_lock` |
 | Cross-correlation | `find_sync_lag` | `find_sync_lag` | `find_sync_lag` |
-| Align N recordings | `align_recordings` | `align_recordings` | `align_recordings` |
 
-Gaps in that table are where a language lacks a convenience wrapper, not a
-capability — the underlying functions are present everywhere.
+### Python-only
+
+These are whole capabilities, not wrappers. There is no MATLAB or R
+equivalent to call.
+
+| Purpose | MATLAB | Python | R |
+|---|---|---|---|
+| Offset/drift/jitter/loss decomposition | — | `truth.score` / `truth.classify` | — |
+| Corrected timestamps from a report | — | `truth.correct` | — |
+| One call, full analysis + report | — | `analyze_file` / `analyze_streams` | — |
+| Template-free pairwise diagnosis | — | `diagnose_pair` | — |
+| Signal fidelity against the grid | — | `check_fidelity` | — |
+| **Decode the event channel** | — | `decode_events` | — |
+| Load XDF / LSL recordings | — | `load_xdf` | — |
+
+A `—` in either table means the capability is genuinely absent in that
+language, not merely unwrapped. `plot_sync_check` is MATLAB-only for the same
+reason, and `split_runs` exists only in Python and R.
 
 ## Dependencies
 

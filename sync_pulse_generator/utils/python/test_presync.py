@@ -33,6 +33,14 @@ def check(name, cond, detail=""):
         "" if cond else ("\n         " + detail if detail else "")))
 
 
+# The quantum these fixtures are generated at. Stated explicitly because a
+# synthetic stream carries no timecode frame, so it cannot declare its own
+# protocol the way a real full-variant recording does -- and the resolver
+# would otherwise read "frameless" as "the old simple variant" and score a
+# 0.25 ms fixture against a 5 ms template, matching nothing.
+FIXTURE_STEP_MS = truth.STEP_MS
+
+
 def _edges(start_s, dur_s, rising_only=False):
     """Recorded edge times for a window of the generator's output.
 
@@ -42,7 +50,7 @@ def _edges(start_s, dur_s, rising_only=False):
     is a running PRNG, so asking for 1900 s of it is not the first 1900 s of
     6 h. Tests built that way fail against correct code.
     """
-    T = truth._template(both_edges=not rising_only)
+    T = truth._template(both_edges=not rising_only, step_ms=FIXTURE_STEP_MS)
     return T[(T >= start_s) & (T <= start_s + dur_s)]
 
 
@@ -59,7 +67,7 @@ def test_locates_deep_into_a_free_running_sequence():
     """
     start = 1800.0
     e = _edges(start, 60.0)
-    c = presync.classify(e, both_edges=True)
+    c = presync.classify(e, both_edges=True, step_ms=FIXTURE_STEP_MS)
     got = c.get("n_captured", 0)
     check("locates a recording starting 30 min into the run",
           got >= 0.95 * len(e), f"captured {got} of {len(e)} recorded edges")
@@ -101,7 +109,7 @@ def test_reports_a_hole_rather_than_scoring_around_it():
     """Missing data is loss, not a timing error, and must be named as such."""
     e = _edges(300.0, 120.0)
     keep = (e < 340.0) | (e > 350.0)          # punch out ~10 s
-    c = presync.classify(e[keep], both_edges=True)
+    c = presync.classify(e[keep], both_edges=True, step_ms=FIXTURE_STEP_MS)
     outs = c.get("outages") or []
     check("a 10 s hole is reported as an outage", len(outs) >= 1,
           f"outages found: {len(outs)}")
@@ -114,7 +122,7 @@ def test_rising_only_stream_is_not_scored_against_both_edges():
     matches, so the polarity has to travel with the stream.
     """
     e = _edges(300.0, 90.0, rising_only=True)
-    right = presync.classify(e, both_edges=False)
+    right = presync.classify(e, both_edges=False, step_ms=FIXTURE_STEP_MS)
     check("rising-only stream locates with both_edges=False",
           right.get("n_captured", 0) >= 0.9 * len(e),
           f"captured {right.get('n_captured')} of {len(e)}")

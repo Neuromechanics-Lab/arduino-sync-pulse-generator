@@ -137,6 +137,13 @@ class TruthReport:
     clean_drift_ppm: float = float("nan")
 
     span_s: float = float("nan")
+
+    # Which duration quantum was used, and why. A recording that fails to
+    # lock is almost always a quantum mismatch rather than bad data, so the
+    # resolution is reported rather than left implicit.
+    step_ms: float = float("nan")
+    step_ms_source: str = ""
+
     _fit: tuple = (0.0, 0.0)           # (drift slope, offset) in truth time
     _t0: float = 0.0                   # truth-time origin the fit is about
     _lock_off: float = 0.0             # recording clock - truth clock
@@ -249,8 +256,11 @@ def classify(edge_times, both_edges=True, **kw):
     if not r.locked:
         return {"locked": False, "note": r.note}
 
+    # The quantum score() actually resolved, not the caller's (often absent)
+    # hint: rebuilding the template on a different one yields a different
+    # waveform and silently undoes the lock.
     T = _template(both_edges, kw.get("seed", SEED), kw.get("hours", SEARCH_HOURS),
-                  kw.get("step_ms"))
+                  r.step_ms)
     pred = np.asarray(edge_times, float) - r._lock_off
     pred.sort()
     tr = T[(T >= pred[0]) & (T <= pred[-1])]
@@ -287,13 +297,16 @@ def classify(edge_times, both_edges=True, **kw):
             else:
                 isolated += [float(x) for x in g]
 
-    _sm = kw.get('step_ms')
-    unit = STEP_MS if _sm is None else float(_sm)
+    # Same reasoning as the template above: the gross-vs-jitter cut is
+    # expressed in quanta, so it must use the quantum the lock was actually
+    # made on.
+    unit = float(r.step_ms)
     gross_m = np.abs(res) > GROSS_UNITS * unit
     clean = res[~gross_m]
 
     return {
         "locked": True,
+        "step_ms": float(r.step_ms), "step_ms_source": r.step_ms_source,
         "n_emitted": len(tr), "n_captured": len(matched),
         "offset_ms": float(icept * 1000),
         "drift_ppm": float(slope * 1e6),
@@ -319,6 +332,14 @@ def report(c, name=""):
         print(f"{name}: NOT LOCATED — {c.get('note','')}"); return
     lost = c["n_emitted"] - c["n_captured"]
     print(f"\n{name}")
+    # Always state the quantum and how it was arrived at. Getting this wrong
+    # does not degrade a result, it prevents a lock -- so the assumption is
+    # reported on every run rather than only when something fails.
+    if c.get("step_ms"):
+        print(f"  quantum         {c['step_ms']:g} ms — {c.get('step_ms_source','')}")
+        if "simple variant" in c.get("step_ms_source", ""):
+            print(f"                  (no protocol declared in the signal; pass "
+                  f"step_ms= to override)")
     print(f"  captured        {c['n_captured']}/{c['n_emitted']} "
           f"({100*c['n_captured']/c['n_emitted']:.1f}%)")
     print(f"  offset          {c['offset_ms']:+.2f} ms          (constant — correctable)")
@@ -327,7 +348,7 @@ def report(c, name=""):
     print(f"  JITTER          sd {c['jitter_sd_ms']:.2f} ms = {c['jitter_sd_units']:.3f} quanta, "
           f"max {c['jitter_max_units']:.2f} quanta")
     print(f"                  {c['within_half_unit_pct']:.1f}% land within half a quantum "
-          f"(= on the correct 5 ms tick)")
+          f"(= on the correct {c.get('step_ms', STEP_MS):g} ms tick)")
     if c["n_gross"]:
         print(f"  GROSS ERRORS    {c['n_gross']} transition(s) off by >{GROSS_UNITS:.0f} quanta: "
               + ", ".join(f"{t:.1f}s ({v:+.0f} ms)"
@@ -344,6 +365,31 @@ def report(c, name=""):
         print(f"  ISOLATED MISSES {c['n_isolated']}")
     if not c["outages"] and not c["n_gross"] and c["n_isolated"] <= 2:
         print(f"  -> clean: timing good to {c['jitter_sd_units']:.2f} quanta, no structural loss")
+
+
+def _resolve_step_ms(edge_times, explicit=None):
+    """Which duration quantum produced this recording?
+
+    Returns (step_ms, why). Getting this wrong does not degrade the result —
+    it prevents a lock entirely, because a template built on the wrong
+    quantum is a different waveform. The failure then looks like bad data,
+    which is why the answer is resolved explicitly and reported.
+
+    An explicit value always wins. Otherwise the recording is asked to
+    declare itself: a decodable timecode frame means the firmware was
+    emitting frames, which only the full variant does, so the current
+    quantum applies. A recording with no frame is the simple variant, which
+    predates the finer quantum and is always 5 ms.
+    """
+    if explicit is not None:
+        return float(explicit), "given explicitly"
+    try:
+        e = sorted(np.asarray(edge_times, float).ravel().tolist())
+        if any(f.get("ok") for f in tc.decode_frames(e)):
+            return STEP_MS, "timecode frame present (full variant)"
+    except Exception:
+        pass
+    return 5.0, "no timecode frame (simple variant)"
 
 
 _TEMPLATE_CACHE = {}
@@ -461,12 +507,18 @@ def score(edge_times, both_edges=True, seed=SEED, hours=SEARCH_HOURS,
         r.note = f"only {len(e)} transitions; need at least {CHUNK+2}"
         return r
 
-    T = _template(both_edges, seed, hours, step_ms)
+    step, why = _resolve_step_ms(e, step_ms)
+    r.step_ms, r.step_ms_source = step, why
+
+    T = _template(both_edges, seed, hours, step)
     loc = _locate(e, T, match_s=match_s)
     if loc is None:
+        alt = 0.25 if step == 5.0 else 5.0
         r.note = (f"no part of this recording matches {hours:g} h of the "
-                  f"generator's output — either it is not this signal, or it "
-                  f"is too corrupted for any window to match")
+                  f"generator's output at step_ms={step:g} ({why}). Either it "
+                  f"is not this signal, it is too corrupted for any window to "
+                  f"match, or the quantum is wrong — if so, retry with "
+                  f"step_ms={alt:g}")
         return r
     off, cov = loc
     r.locked = True
