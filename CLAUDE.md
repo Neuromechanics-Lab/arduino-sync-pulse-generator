@@ -60,10 +60,25 @@ python3 test_align.py       # 16 tests, each a named past failure
 python3 test_edge_sync.py   # 7, edge detection and EMG
 python3 test_events.py      # 11, event channel decoder
 python3 test_presync.py     # 9, invariants + real-data regression
+python3 test_roundtrip.py   # 23, injected-vs-recovered accuracy + characterization
 python3 timecode.py         # round-trip self-test
 ```
 
-All 43 must pass. `test_presync.py` pins real numbers from a session where
+All 66 must pass.
+
+`test_roundtrip.py` catches a *wrong number* rather than a broken pipeline.
+The other suites assert invariants — a recording locates, a hole is reported
+as an outage — which catch a pipeline that stopped working. They do not catch
+one that still runs, still locates, and returns a value that is quietly off.
+This injects known offset, drift, jitter and loss, runs the real entry
+points, and asserts what comes back. `--report out.png` draws injected vs
+recovered, because a passing tolerance can still hide a systematic bias or a
+value creeping toward the bound as a parameter grows.
+
+It also prints a **characterization block** — measured boundaries, not
+assertions. Asserting where the instrument degrades produces a permanently
+red suite, which teaches you to ignore it; measuring it on every run means
+the boundary cannot drift unnoticed. `test_presync.py` pins real numbers from a session where
 the answer is independently known, because a rewrite once produced the same
 edge count with intervals differing by up to 307 ms — nothing raised, the
 stream simply located against the wrong pattern. Counting is not verifying.
@@ -90,6 +105,35 @@ take its quantum from the same resolution, not from a module default.
 
 **Synthetic fixtures must declare their own quantum.** A generated stream
 carries no protocol and cannot be asked.
+
+## Measured limits (from test_roundtrip.py, 2026-09-13)
+
+Measured, not estimated. Re-measured on every run of the suite, so they
+cannot drift unnoticed. Quote these when asked what the analysis can take.
+
+| quantity | recovers accurately | degrades |
+|---|---|---|
+| Clock drift | to **300 ppm** (within 5%) | −6.5% at 400 ppm, −16% at 500, −81% at 1000 |
+| Jitter (sd) | to **0.5 ms** | saturates near 0.42 ms above that, whatever is injected |
+| Contiguous loss | to **30%** (within 4 points) | not yet found |
+| Offset | any (−5 s tested) | not found |
+
+Two of these are worth understanding rather than just knowing:
+
+**Jitter saturates** because above roughly 0.5 ms sd, edges begin pairing to
+the wrong template transition. The reported figure then reflects the
+matcher's own resolution rather than the recorder's spread. A stream whose
+real jitter exceeds this will be *under*-reported — the dangerous direction,
+since it claims a precision the recorder does not have.
+
+**Contiguous and scattered loss behave completely differently.** A stall of
+30% reads correctly. The same 30% scattered per-edge breaks the lock
+entirely, and even 15% scattered reads as 78% missing, because the
+fingerprint needs four *consecutive* intervals and scattered loss shreds
+them. This matters less than it looks: the generator holds every level for
+at least 50 ms, so a real recorder cannot miss isolated edges — it misses a
+stretch. Scattered loss is the regime to understand, not the one to design
+for.
 
 ## Behaviour when something is off
 
