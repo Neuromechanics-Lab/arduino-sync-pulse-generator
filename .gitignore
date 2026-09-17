@@ -17,3 +17,7 @@ trigger-box/exports/
 
 # Docs toolchain venv
 .venv-docs/
+
+# Demo/participant data — never committed. This repository is intended for
+# publication and must not carry recordings.
+testdata/
