@@ -1,51 +1,67 @@
 %% Aligning epoched trials to a continuous recording — PRE-Sync worked example
 %
-% Locates short epoched trials (Vicon/Nexus) inside a long continuous
-% recording (BrainVision EEG) by fingerprinting the sync square wave both
-% systems recorded.
+% Finds where short epoched trials (Vicon/Nexus) sit inside a long continuous
+% recording (BrainVision EEG), using the sync square wave both systems
+% captured.
 %
 % ---------------------------------------------------------------------------
 % THE PROBLEM
 % ---------------------------------------------------------------------------
-% Nexus hands us short epoched trials. The EEG is one long continuous file.
-% Nothing in either says where a trial sits inside the EEG. The usual fixes —
-% trusting wall clocks, counting trigger markers, matching trial counts — all
-% fail quietly the moment anything is dropped, restarted, or started late.
+% Nexus gives you trials. The EEG is one long file. Neither says where a trial
+% lives in the other.
+%
+% The usual answers all work until they don't: wall clocks drift and nobody
+% writes down the offset, trigger counts assume nothing was aborted or
+% restarted, and matching trial numbers assumes the two systems agree about
+% what counts as a trial. Each fails silently. You get an alignment, it looks
+% plausible, and the error shows up three analyses later as noise you cannot
+% explain.
 %
 % ---------------------------------------------------------------------------
 % THE IDEA
 % ---------------------------------------------------------------------------
-% A box emits a square wave whose HIGH and LOW durations are pseudo-random,
-% drawn in 5 ms steps from 50-500 ms. Both systems record that same physical
-% signal on an analog channel.
+% The box emits a square wave whose HIGH and LOW durations are pseudo-random —
+% 50 to 500 ms, in 5 ms steps. Both systems record that same physical signal.
 %
-% Because the durations are pseudo-random, any short stretch of the wave has
-% an interval pattern that occurs nowhere else. A run of six intervals —
-% 205, 135, 480, 80, 465, 175 ms — is effectively a fingerprint. Find that
-% pattern in the EEG's copy of the wave and you have found exactly where the
-% trial sits, to the sample.
+% Pseudo-random means any short stretch is unique. Six consecutive intervals —
+% 205, 135, 480, 80, 465, 175 ms — occur in that order exactly once. Find them
+% in the EEG's copy and you have found the trial, to the sample.
 %
-% That is the whole method. No clocks, no timestamps, no assumptions about
-% sample rate, no trigger counting.
+% That is the method. Nothing about clocks enters into it.
+%
+% ---------------------------------------------------------------------------
+% WHY CLOCK DRIFT DOES NOT MATTER HERE
+% ---------------------------------------------------------------------------
+% The usual objection, and worth answering. The EEG amplifier's clock in the
+% reference dataset runs 96 ppm slow — 57 ms accumulated over a 10-minute
+% file, which is enough to matter for anything time-locked to cortical
+% activity.
+%
+% It makes no difference. Both systems recorded the same physical edges;
+% whatever either clock did, it did to both copies, and matching the recorded
+% patterns absorbs it. The clock only enters if you use it, and this does not.
+%
+% Regenerating the wave from its seed is a separate capability, and it buys
+% something the above cannot: absolute position on a clock that never stopped.
+% That matters when a recording was paused — see box_time below.
 %
 % ---------------------------------------------------------------------------
 % WHAT THIS USES
 % ---------------------------------------------------------------------------
 % The PRE-Sync MATLAB toolkit, in ../../sync_pulse_generator/utils/matlab:
 %
-%   DETECT_EDGES  transition times to sub-sample precision. Interpolates
-%                 across the threshold rather than taking the nearest sample,
-%                 which matters: at 1 kHz a whole-sample edge is a 1 ms
-%                 quantisation. It also has a 'rectified' mode for a channel
-%                 that went through an EMG amplifier, where the high-pass
-%                 turns each step into a spike — not needed here, but that is
-%                 the function to reach for if your sync channel looks wrong.
+%   DETECT_EDGES  transition times, interpolated between samples rather than
+%                 snapped to the nearest one. At 1 kHz that is the difference
+%                 between 1 ms quantisation and about 0.1 ms. Also has a
+%                 'rectified' mode for a channel that went through an EMG
+%                 amplifier, where the high-pass turns each step into a spike
+%                 — reach for it if your sync channel looks wrong.
 %
-%   EDGE_DELAY    pairs two edge lists and reports the delay between them,
-%                 respecting polarity (a rising edge is only matched to a
-%                 rising edge), requiring the match to be causal, and
-%                 flagging outliers. It returns per-polarity agreement and a
-%                 drift estimate, which are the checks worth reading.
+%   EDGE_DELAY    pairs two edge lists and reports the delay between them. It
+%                 respects polarity (rising matches rising, never falling),
+%                 requires the match to be causal, and flags outliers. Read
+%                 the per-polarity agreement: rising and falling arriving at
+%                 the same answer is a good sign the pairing is real.
 %
 % MIT licensed, as is the rest of this repository. See LICENSE at the root.
 %
@@ -145,33 +161,36 @@
 % ---------------------------------------------------------------------------
 % USING THE OUTPUT
 % ---------------------------------------------------------------------------
-% The answer is a SAMPLE INDEX, because that is the question: which EEG
-% samples correspond to this trial. To pull them:
+% The answer is a sample index, because that was the question:
 %
 %     s0 = T.eeg_sample0(i);
 %     eeg_epoch = eeg_data(:, s0 : s0 + nSamplesInTrial - 1);
 %
-% No rounding, no unit conversion, no off-by-one to reason about.
+% No rounding, no unit conversion, nothing to get wrong by one.
 %
-% The perturbation sits at trial time 0, which is offset into the epoch by
-% however much pre-trigger the epoch carries:
+% The perturbation sits at trial time 0, offset into the epoch by whatever
+% pre-trigger it carries:
 %
 %     s_pert = s0 + T.eeg_pert_offset(i);
 %
-% Skip trials that did not locate — eeg_sample0 is NaN for those:
+% Trials that did not locate carry NaN. Skip them:
 %
 %     for i = find(~isnan(T.eeg_sample0))'
 %
-% eeg_t0_sec is provided for plotting, and it is FILE POSITION, not elapsed
-% time. The perception recording was stopped and restarted twice, so the file
-% concatenates three segments with roughly 12 and 9 minutes of real time
-% missing at the joins. Sample 936501 reads as 936 s into the file and is
-% really about 2211 s after recording began. For indexing samples this makes
-% no difference at all; for interpreting a number as "seconds since start" it
-% makes a large one.
+% box_time is the generator's clock, and it answers a different question: when
+% did this happen on something that never stopped? The reference perception
+% recording was paused twice, so its file concatenates three segments with
+% roughly 12 and 9 minutes of real time missing at the joins. Sample 936501
+% reads as 936 s into the file and is really about 2211 s after recording
+% began. For indexing samples that costs you nothing. For anything where the
+% interval between two trials matters, it costs you 21 minutes.
+%
+% eeg_t0_sec is file position in seconds. It is there for plotting. Do not
+% read it as elapsed time; see above.
 %
 % resid_ms is the confidence measure — how far the two recordings disagree
-% about the wave once placed. Sub-millisecond means better than one sample.
+% about the wave once placed. Sub-millisecond means they agree to better than
+% one sample.
 %
 % ---------------------------------------------------------------------------
 % RESULT ON THIS DATA
@@ -543,27 +562,28 @@ end
 %% ================================================================ if it fails
 %
 % NO MATCH on every trial
-%     Check you have the right EEG file for these trials. Then plot the sync
-%     channel and confirm it really is the square wave. If the trials come
-%     from a different session than the EEG there is nothing to find, and the
-%     script is correct to say so.
+%     Check you have the right continuous file for these trials, then plot the
+%     sync channel and confirm it really is the square wave. If the trials came
+%     from a different session, there is nothing to find and the script is
+%     right to say so.
 %
 % NO MATCH on some trials
-%     Usually a trial whose window clipped the wave, leaving too few clean
-%     edges. Look at that trial's Square_Wave row. Lowering K trades certainty
-%     for reach; raising TOL trades certainty for tolerance of noisy edges.
+%     Usually an epoch that clipped the wave and left too few clean edges.
+%     Look at that trial's Square_Wave row. Lowering K reaches further and
+%     certifies less; raising TOL tolerates noisier edges and certifies less.
+%     Both are trades, not fixes.
 %
 % A trial reports several candidates
-%     The fingerprint was not unique — rare at K=6, but possible in a long
-%     recording. Raise K if the trial has edges to spare, and check that trial
-%     against panel (d) before trusting it.
+%     The fingerprint was not unique. Rare at K=6 but not impossible in a long
+%     recording. Raise K if the trial has the edges to spare, and look at panel
+%     (d) before you trust that trial.
 %
 % Trial times are not monotonic
 %     At least one trial matched the wrong place. Nothing in the matching
-%     enforces ordering, which is exactly why the check is worth making.
+%     enforces ordering, which is why the check is worth making.
 %
 % Residuals of several ms rather than a fraction
-%     The two systems disagree about the SHAPE of the wave, not just its
-%     position. Suspect a channel that went through an amplifier or filter
-%     that is not simply recording the level — an EMG input, for instance,
-%     turns each step into a spike.
+%     The two systems disagree about the shape of the wave, not just where it
+%     is. Suspect a channel that went through something other than a plain
+%     analog input — an EMG amplifier turns each step into a spike, and
+%     detect_edges has a 'rectified' mode for exactly that.
