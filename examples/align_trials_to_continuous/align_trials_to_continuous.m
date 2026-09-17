@@ -78,6 +78,47 @@
 % it is participant data. Substitute your own.
 %
 % ---------------------------------------------------------------------------
+% TWO THINGS THAT VARY BETWEEN DATASETS
+% ---------------------------------------------------------------------------
+% 1. COLUMN NAMES. This script discovers them (any column matching 'square'
+%    and 'atime') rather than hardcoding, because they are not stable: in this
+%    dataset fitsData1 and fitsData2 use Square_Wave_1 / atime_1 while
+%    fitsData3 uses Square_Wave_2 / atime_2 — the suffix is the PERTURBATION
+%    number, not the table number. The dangerous case is not an error, it is a
+%    table where the name you assumed exists but holds a different
+%    perturbation: the script then aligns confidently to the wrong event. If
+%    your tables name things differently again, widen the search patterns
+%    below, and check the reported column names in the output.
+%
+% 2. HOW THE SQUARE WAVE WAS RECORDED. This script assumes a CONTINUOUS
+%    ANALOG CHANNEL — the wave plugged into an input and sampled like any
+%    other signal (here Ch65 'SquareWave' in the BrainVision file, and the
+%    Square_Wave column in the Vicon table).
+%
+%    Some setups instead feed the wave into a DIGITAL TRIGGER INPUT, so each
+%    transition arrives as an EVENT MARKER — in BrainVision, entries in the
+%    .vmrk file rather than samples in the .eeg. That still works, and the
+%    method is unchanged, but the code path differs:
+%
+%      - Read the marker positions instead of calling detect_edges. A .vmrk
+%        line is 'Mk<n>=<type>,<desc>,<sample>,<size>,<chan>'; the third field
+%        is the sample index, so edge times are sample/fs directly.
+%      - You get NO sub-sample interpolation. Marker positions are whole
+%        samples, so timing is quantised to one sample (1 ms at 1 kHz) rather
+%        than the ~0.1 ms this script achieves. Fine for most purposes; worth
+%        knowing before quoting a precision.
+%      - Markers usually carry ONE polarity — typically rising edges only.
+%        detect_edges reports both, so the interval sequence differs by a
+%        factor of two between a marker list and a sampled channel. Compare
+%        like with like: if one side is rising-only, take the rising edges
+%        from the other with select_edges or by filtering on polarity.
+%      - Check the marker count before assuming. In this dataset the .vmrk
+%        markers are experiment events (S 15 / S 11 pairs, 19 and 49 of them)
+%        and NOT the square wave, which has 2195 transitions on Ch65. A
+%        handful of markers means events; hundreds or thousands means the
+%        wave.
+%
+% ---------------------------------------------------------------------------
 % WHY CLOCK DRIFT DOES NOT MATTER HERE
 % ---------------------------------------------------------------------------
 % Worth stating, because it is the usual objection. The EEG amplifier's clock

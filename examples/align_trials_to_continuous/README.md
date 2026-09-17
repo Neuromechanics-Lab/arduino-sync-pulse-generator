@@ -45,6 +45,32 @@ align_trials_to_continuous
 Edit the config block to point at your own data. The example paths refer to an
 Emory dataset that is **not** in this repository — it is participant data.
 
+## Two things that vary between datasets
+
+**Column names.** The script discovers them rather than hardcoding. In the
+reference dataset `fitsData1`/`fitsData2` use `Square_Wave_1`/`atime_1` while
+`fitsData3` uses `Square_Wave_2`/`atime_2` — the suffix is the *perturbation*
+number, not the table number. The dangerous case is not an error but a table
+where the assumed name exists and holds a different perturbation; the script
+then aligns confidently to the wrong event. Check the reported column names.
+
+**Whether the wave is a channel or events.** This example assumes a
+**continuous analog channel** — the wave plugged into an input and sampled.
+Some setups feed it into a digital trigger input instead, so each transition
+arrives as an **event marker** (a `.vmrk` entry rather than `.eeg` samples).
+The method is unchanged but the code path differs:
+
+- Read marker sample positions instead of calling `detect_edges`.
+- No sub-sample interpolation — markers are whole samples, so timing is
+  quantised to 1 ms at 1 kHz rather than the ~0.1 ms achieved here.
+- Markers usually carry **one polarity** (rising only), while `detect_edges`
+  returns both. The interval sequences then differ by a factor of two. Compare
+  like with like.
+- Check the count first. In the reference dataset the `.vmrk` markers are
+  experiment events (19 and 49 of them), not the wave, which has 2195
+  transitions on the analog channel. A handful means events; hundreds or
+  thousands means the wave.
+
 ## What it uses
 
 - `detect_edges` — transition times to sub-sample precision, interpolating
@@ -63,8 +89,3 @@ Emory dataset that is **not** in this repository — it is participant data.
 | fitsData1 | single, 1 perturbation | 17/17 | 0.207 ms |
 | fitsData2 | perception, 1st perturbation | 47/47 | ~0.3 ms |
 | fitsData3 | perception, 2nd perturbation | 47/47 | ~0.3 ms |
-
-Two checks worth reading, neither enforced by the matching: every match was
-unique, and trial order came out monotonic. A third: `fitsData2` and
-`fitsData3` are the two perturbations of the same trials, located completely
-independently, and their gap is constant to 4.3 ms sd across all 47.
