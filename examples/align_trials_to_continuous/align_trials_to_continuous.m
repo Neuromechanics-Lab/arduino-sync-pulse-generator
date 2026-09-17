@@ -10,13 +10,6 @@
 % Nexus gives you trials. The EEG is one long file. Neither says where a trial
 % lives in the other.
 %
-% The usual answers all work until they don't: wall clocks drift and nobody
-% writes down the offset, trigger counts assume nothing was aborted or
-% restarted, and matching trial numbers assumes the two systems agree about
-% what counts as a trial. Each fails silently. You get an alignment, it looks
-% plausible, and the error shows up three analyses later as noise you cannot
-% explain.
-%
 % ---------------------------------------------------------------------------
 % THE IDEA
 % ---------------------------------------------------------------------------
@@ -27,23 +20,9 @@
 % 205, 135, 480, 80, 465, 175 ms — occur in that order exactly once. Find them
 % in the EEG's copy and you have found the trial, to the sample.
 %
-% That is the method. Nothing about clocks enters into it.
-%
-% ---------------------------------------------------------------------------
-% WHY CLOCK DRIFT DOES NOT MATTER HERE
-% ---------------------------------------------------------------------------
-% The usual objection, and worth answering. The EEG amplifier's clock in the
-% reference dataset runs 96 ppm slow — 57 ms accumulated over a 10-minute
-% file, which is enough to matter for anything time-locked to cortical
-% activity.
-%
-% It makes no difference. Both systems recorded the same physical edges;
-% whatever either clock did, it did to both copies, and matching the recorded
-% patterns absorbs it. The clock only enters if you use it, and this does not.
-%
-% Regenerating the wave from its seed is a separate capability, and it buys
-% something the above cannot: absolute position on a clock that never stopped.
-% That matters when a recording was paused — see box_time below.
+% The pattern is unique up to 49 days of continuous generation (and also
+% the same every time it restarts).
+
 %
 % ---------------------------------------------------------------------------
 % WHAT THIS USES
@@ -54,8 +33,9 @@
 %                 snapped to the nearest one. At 1 kHz that is the difference
 %                 between 1 ms quantisation and about 0.1 ms. Also has a
 %                 'rectified' mode for a channel that went through an EMG
-%                 amplifier, where the high-pass turns each step into a spike
-%                 — reach for it if your sync channel looks wrong.
+%                 amplifier, where the high-pass turns each step into a
+%                 spike.
+%     
 %
 %   EDGE_DELAY    pairs two edge lists and reports the delay between them. It
 %                 respects polarity (rising matches rising, never falling),
@@ -147,7 +127,7 @@
 % (Regenerating the wave from its seed IS useful — for absolute position, for
 % relating files that never overlap, and for auditing a recorder against
 % ground truth. None of that is needed to answer "where is this trial", so
-% this demo does not do it.)
+% this demo does not do it, but the API handles all of that.)
 %
 % ---------------------------------------------------------------------------
 % WHAT COMES OUT
@@ -214,10 +194,38 @@
 clear; clc; close all;
 
 %% ------------------------------------------------------------------ config
-HERE  = fileparts(mfilename('fullpath'));
-UTILS = fullfile(HERE, '..', '..', 'sync_pulse_generator', 'utils', 'matlab');
-assert(isfolder(UTILS), ['PRE-Sync MATLAB toolkit not found at ' UTILS]);
+% Find the toolkit. mfilename is empty when you Run Section rather than
+% running the whole file — MATLAB copies the cell to a temp file first — so
+% try that, then the editor's open document, then whatever is already on the
+% path, and only give up after actually looking.
+UTILS = '';
+cands = {};
+if ~isempty(mfilename('fullpath'))
+    cands{end+1} = fullfile(fileparts(mfilename('fullpath')), '..', '..', ...
+                            'sync_pulse_generator', 'utils', 'matlab');
+end
+try
+    doc = matlab.desktop.editor.getActive;
+    if ~isempty(doc)
+        cands{end+1} = fullfile(fileparts(doc.Filename), '..', '..', ...
+                                'sync_pulse_generator', 'utils', 'matlab');
+    end
+catch
+end
+if ~isempty(which('detect_edges'))
+    UTILS = fileparts(which('detect_edges'));   % already on the path
+end
+for c = cands
+    if ~isempty(UTILS), break; end
+    if isfolder(c{1}), UTILS = c{1}; end
+end
+assert(~isempty(UTILS), ['PRE-Sync MATLAB toolkit not found. Run the whole ' ...
+    'file (F5) rather than a single section, or addpath the toolkit yourself:' ...
+    newline '  addpath(''<clone>/sync_pulse_generator/utils/matlab'')']);
 addpath(UTILS);
+
+HERE = fileparts(UTILS);
+HERE = fullfile(HERE, '..', '..', 'examples', 'align_trials_to_continuous');
 
 % Point this at your own data. Nothing under it is in the repository.
 DATA      = fullfile(HERE, '..', '..', 'testdata');
@@ -319,12 +327,12 @@ for job = 1:size(JOBS, 1)
     vn    = T.Properties.VariableNames;
     sq_col = vn{find(contains(lower(vn), 'square'), 1)};
     at_col = vn{find(contains(lower(vn), 'atime'), 1)};
-    fprintf('  %s: %d trials, columns %s / %s\n\n', ...
+    fprintf('  %s: %d Nexus trials, columns %s / %s\n\n', ...
             TABLE_NAME, n_trials, sq_col, at_col);
 
     % ------------------------------------------------------------- the match
     fprintf('  %-7s %6s %9s %12s %6s %9s\n', ...
-            'trial','edges','eegEdge','eeg_sample0','cand','resid(ms)');
+            'nexus','edges','eegEdge','eeg_sample0','cand','resid(ms)');
     fprintf('  %s\n', repmat('-', 1, 58));
 
     eeg_t0   = nan(n_trials,1);  resid_ms = nan(n_trials,1);
@@ -410,10 +418,10 @@ for job = 1:size(JOBS, 1)
 
     ok = ~isnan(eeg_t0);
     if n_trials > 20, fprintf('  ... (%d rows, showing every 10th)\n', n_trials); end
-    fprintf('\n  %d of %d located, worst residual %.3f ms\n', ...
+    fprintf('\n  %d of %d Nexus trials located, worst residual %.3f ms\n', ...
             sum(ok), n_trials, max(resid_ms(ok)));
     if any(inverted)
-        fprintf(['  NOTE: the trial square wave is INVERTED relative to the ' ...
+        fprintf(['  NOTE: the Nexus square wave is INVERTED relative to the ' ...
                  'EEG''s (%d/%d trials).\n        Times agree; only the sign ' ...
                  'differs. Worth knowing about your wiring.\n'], ...
                  sum(inverted), sum(ok));
@@ -423,7 +431,7 @@ for job = 1:size(JOBS, 1)
     mono = issorted(eeg_t0(ok));
     if uniq, fprintf('  Every match unique.\n');
     else,    warning('%d trial(s) matched more than one position.', sum(n_cand(ok)>1)); end
-    if mono, fprintf('  Trial order preserved.\n');
+    if mono, fprintf('  Nexus trial order preserved.\n');
     else,    warning('Trial times are NOT monotonic — at least one match is wrong.'); end
 
     % ------------------------------------------------- write the column back
@@ -446,7 +454,7 @@ for job = 1:size(JOBS, 1)
         fig = struct('T',T,'sq_col',sq_col,'at_col',at_col,'ok',ok, ...
                      'eeg_t0',eeg_t0,'resid_ms',resid_ms,'first_edge',first_edge, ...
                      'eeg_sync',eeg_sync,'eeg_time',eeg_time,'eeg_iv',eeg_iv, ...
-                     'edges',eeg_edges,'n_samp',n_samp,'fs',hdr.fs);
+                     'edges',eeg_edges,'n_samp',n_samp,'fs',hdr.fs,'inverted',inverted);
     end
 end
 
@@ -497,24 +505,38 @@ function plot_explanation(f, K, sync_name)
     te_k = detect_edges(f.T.(f.sq_col)(k,:)', 1/(a_k(2)-a_k(1)));
     vt = te_k.time(:) + a_k(1);
     j0 = f.first_edge(k);
-    stem(1:K, diff(vt(1:K+1))*1000, 'filled', 'Color',[.75 .2 .2]); hold on;
-    stem(1:K, f.eeg_iv(j0:j0+K-1), 'o', 'Color',[.2 .2 .2]);
-    xlabel('interval #'); ylabel('ms'); xlim([0 K+1]);
-    legend('trial','EEG at match','Location','best');
-    title(sprintf('(b) Trial %d fingerprint vs the EEG where it matched', k));
+    % Offset the two series slightly or they land on top of each other — which
+    % is the result, but makes it look like only one was plotted.
+    stem((1:K)-0.10, diff(vt(1:K+1))*1000, 'filled', 'Color',[.75 .2 .2], ...
+         'MarkerSize',5); hold on;
+    stem((1:K)+0.10, f.eeg_iv(j0:j0+K-1), 'o', 'Color',[.2 .2 .2], ...
+         'MarkerSize',5);
+    xlabel('interval #'); ylabel('ms'); xlim([0.5 K+0.5]);
+    legend('Nexus trial','EEG at match','Location','best');
+    title(sprintf('(b) Nexus trial %d''s fingerprint, and the EEG stretch it matched', k));
 
     subplot(3,2,3);
     % detect_edges returns a time, which lands BETWEEN samples. Showing that
     % is the point of this panel: the red line sits off-grid.
+    % detect_edges reports seconds from the first sample, and sample 1 sits at
+    % t = 0 — so the fractional sample number is t*fs + 1, and that is what
+    % must be plotted against the 1-based sample axis below.
     t_edge = f.edges.time(1);
-    s_edge = t_edge * f.fs + 1;                 % fractional sample position
+    s_edge = t_edge * f.fs + 1;
     w  = max(1,floor(s_edge)-3):min(f.n_samp,floor(s_edge)+4);
+    thr = (min(f.eeg_sync) + max(f.eeg_sync))/2;
     plot(w, f.eeg_sync(w), 'ko-', 'MarkerFaceColor','k'); hold on;
+    % Draw the threshold. Without it the eye checks the edge against the
+    % middle of the visible slope, which is NOT what the detector uses — the
+    % threshold is the midpoint of the signal's full range, and where it falls
+    % on any given slope depends on where the samples happened to land.
+    yline(thr, 'b--', 'threshold');
     xline(s_edge, 'r', 'LineWidth',1.5);
     xlabel('sample'); ylabel('raw value');
-    legend('samples','detect\_edges result','Location','best');
+    legend('samples','','detect\_edges result','Location','southwest');
     title({'(c) Edges fall BETWEEN samples', ...
-           sprintf('this one at sample %.2f, not %d', s_edge, round(s_edge))});
+           sprintf('this one at %.2f — sample %d is already just below', ...
+                   s_edge, floor(s_edge))});
 
     subplot(3,2,4);
     a = f.T.(f.at_col)(k,:)';
@@ -522,22 +544,56 @@ function plot_explanation(f, K, sync_name)
     e = f.eeg_sync(w); e = (e-min(e))/(max(e)-min(e));
     plot(f.eeg_time(w)-f.eeg_t0(k), e, 'k', 'LineWidth',1.4); hold on;
     v = f.T.(f.sq_col)(k,:)'; v = (v-min(v))/(max(v)-min(v));
+    % The Nexus channel is wired inverted relative to the EEG's. The matching
+    % handles that by flipping polarity; the plot has to flip the trace, or
+    % the two look misaligned when they are not.
+    if f.inverted(k), v = 1 - v; end
     plot(a, v, 'r--', 'LineWidth',1.4);
     xlabel('trial time (s)'); ylabel('normalised');
-    legend('EEG','trial','Location','southeast');
-    title(sprintf('(d) Trial %d overlaid at its recovered position', k));
+    legend('EEG (continuous)','Nexus trial','Location','southeast');
+    title({sprintf('(d) Nexus trial %d overlaid on the EEG where it landed', k), ...
+           'the two square waves should step together'});
+
+    % Inset on one edge. At three seconds across the panel a 0.07 ms
+    % disagreement is far under a pixel, so the full view confirms the trial
+    % landed in the right PLACE and says nothing about precision. Zoom in and
+    % the two traces still step together — that is the part worth seeing.
+    ax = gca; pos = ax.Position;
+    inset = axes('Position', [pos(1)+pos(3)*0.60, pos(2)+pos(4)*0.58, ...
+                              pos(3)*0.36, pos(4)*0.34]);
+    a_edges = detect_edges(f.T.(f.sq_col)(k,:)', 1/(a(2)-a(1)));
+    t_mid   = a_edges.time(ceil(numel(a_edges.time)/2)) + a(1);
+    win     = 0.02;                                   % +/- 20 ms
+    we = f.eeg_time >= f.eeg_t0(k)+t_mid-win & f.eeg_time <= f.eeg_t0(k)+t_mid+win;
+    ee_ = f.eeg_sync(we); ee_ = (ee_-min(ee_))/(max(ee_)-min(ee_));
+    plot(inset, (f.eeg_time(we)-f.eeg_t0(k)-t_mid)*1000, ee_, 'k', 'LineWidth',1.2);
+    hold(inset,'on');
+    wv = a >= t_mid-win & a <= t_mid+win;
+    vv = f.T.(f.sq_col)(k,wv)'; vv = (vv-min(vv))/(max(vv)-min(vv));
+    if f.inverted(k), vv = 1 - vv; end
+    plot(inset, (a(wv)-t_mid)*1000, vv, 'r--', 'LineWidth',1.2);
+    xlabel(inset,'ms from edge'); set(inset,'FontSize',7);
+    title(inset, 'one edge, \pm20 ms', 'FontSize',7);
 
     subplot(3,2,5);
-    plot(f.eeg_time, f.eeg_sync, 'Color',[.75 .75 .75]); hold on;
-    for i = find(f.ok)', xline(f.eeg_t0(i), 'r'); end
+    % Plotting every sample draws 2195 transitions as a solid block and buries
+    % the trial markers. Draw the min/max envelope per second instead: the wave
+    % becomes a band, and the markers are visible against it.
+    binw = round(f.fs);                      % one second
+    nb   = floor(numel(f.eeg_sync)/binw);
+    r    = reshape(f.eeg_sync(1:nb*binw), binw, nb);
+    tb   = ((0:nb-1) + 0.5) * binw / f.fs;
+    fill([tb fliplr(tb)], [min(r) fliplr(max(r))], [.85 .85 .85], ...
+         'EdgeColor','none'); hold on;
+    for i = find(f.ok)', xline(f.eeg_t0(i), 'r', 'LineWidth',1); end
     xlabel('EEG time (s)'); ylabel(sync_name); xlim([0 f.n_samp/f.fs]);
-    title(sprintf('(e) All %d trials placed in the EEG', sum(f.ok)));
+    title(sprintf('(e) All %d Nexus trials placed in the EEG', sum(f.ok)));
 
     subplot(3,2,6);
     bar(find(f.ok), f.resid_ms(f.ok), 'FaceColor',[.2 .4 .6], 'EdgeColor','none');
-    xlabel('trial'); ylabel('max residual (ms)');
+    xlabel('Nexus trial'); ylabel('max residual (ms)');
     ylim([0 max(1, max(f.resid_ms(f.ok))*1.4)]);
-    title({'(f) Worst edge disagreement per trial', ...
+    title({'(f) Worst EEG-vs-Nexus edge disagreement, per trial', ...
            'measured on every edge, not just the ones matched'});
 end
 
