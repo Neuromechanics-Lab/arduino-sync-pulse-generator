@@ -12,6 +12,47 @@ function edges = detect_edges(signal, fs, varargin)
 %       changes, and the exact crossing time comes from linear interpolation
 %       across the mid-level threshold.
 %
+%   WHY INTERPOLATE, AND WHY AT THE MIDPOINT
+%
+%   The generator's switch is nanoseconds. What lands in the data is not that
+%   step but the recorder's response to it: every acquisition system runs an
+%   anti-aliasing filter ahead of its ADC, because without one everything
+%   above Nyquist folds back into the signal you care about. The filter turns
+%   a vertical step into a ramp spanning two or three samples.
+%
+%   Those intermediate samples are information, not blur. Their values say
+%   where BETWEEN two sample instants the transition fell, and they differ
+%   edge to edge — 0.55 on one, 0.18 on the next, 0.39 after that (measured on
+%   a BrainVision EEG channel, ~3.1 intermediate samples per transition; a
+%   Vicon analog channel gave ~2.9). If edges landed on sample boundaries the
+%   pattern would repeat identically. The variation IS the sub-sample phase,
+%   and interpolating recovers it rather than inventing it.
+%
+%   Taking the nearest sample instead quantises every edge to one sample
+%   period — 1 ms at 1 kHz. Interpolating gets to roughly a tenth of that.
+%
+%   The midpoint is the right fraction for two reasons. A symmetric filter
+%   delays all frequencies equally, so its step response crosses 50% at the
+%   true transition; the 20% and 80% crossings do not, and where they fall
+%   depends on the ramp's width. Two recorders with different filters — 2-3
+%   samples against 5 — therefore agree at 50% and disagree everywhere else.
+%   Second, 50% is where the signal moves fastest, so a given voltage noise
+%   buys the least timing error. The foot of the ramp is both shallower and
+%   where any filter ringing lives.
+%
+%   Measured: two systems recording the same wave, each detected this way,
+%   agreed to a mean of 0.006 ms with 0.067 ms sd over 17 trials (EEG against
+%   Vicon, both 1 kHz, PD026 reference dataset). See
+%   examples/align_trials_to_continuous.
+%
+%   WHAT THIS DOES NOT ESTABLISH. That figure is agreement between two
+%   recordings, not accuracy against the physical edge. A bias shared by both
+%   — if both filters are asymmetric in the same direction, say — cancels in
+%   the comparison and stays invisible. Alignment is unaffected, since it
+%   rests on correspondence rather than on absolute time. An absolute latency
+%   claim is not supported by this and would need a scope on the generator's
+%   output and the amplifier's input.
+%
 %   'rectified' - the square wave passed through an EMG amplifier. The
 %       amplifier's high-pass removes the DC level, so a step becomes a
 %       transient spike: a rising edge produces a positive spike and a
