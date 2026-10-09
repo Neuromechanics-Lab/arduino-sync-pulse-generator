@@ -37,16 +37,18 @@ The socket's metal shell comes through the end wall and ends **flush with the
 outside face**. The opening is the shell plus 0.25 mm clearance a side
 (9.5 × 3.7 mm), no larger; the cable's plug body stays outside.
 
-To get the socket that far out, the inside of the wall has a pocket the width
-of the board, and the board's end sits in it. The pocket's depth is the wall
-(3 mm) less the socket's overhang past the board edge, so the skin left
-beyond it is exactly as thick as the overhang. With the measured 2 mm overhang
-that is a 1 mm pocket and a 2 mm skin.
+To get the socket that far out, the inside of the wall has a slim slot the
+width of the board and 2 mm tall, and the board's edge sits in it. The slot
+holds the board's nose top and bottom; the socket shell rides above the board
+and leaves through the opening, which the slot runs into. The slot's depth is
+the wall (3 mm) less the socket's overhang past the board edge: with the
+measured 2 mm overhang, a 1 mm slot and a 2 mm skin.
 
-`usb_over` decides whether the socket ends up flush: too small a figure
-leaves it proud of the wall, too large leaves it shy.
+The 2 mm height assumes a 1.6 mm board (0.2 mm above and below). Board
+thickness is not measured.
+
 The cradle's base sits flush against the wall; the board overhangs it into the
-pocket.
+slot.
 
 ## The cradle
 
@@ -100,7 +102,7 @@ the `.scad`.
 STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl`.
 
 1. `trigger6-fit_test` — the USB end of the real frame, cut off just past the
-   cradle and 4 mm above the top of the wall notch; print it **rim down** like the
+   cradle and 4 mm above the top of the USB opening; print it **rim down** like the
    frame. It has all four pillars at their true spacing, the end wall with the
    USB opening and notch at their true height, and two corner posts with nut
    slots. Seat the cradle on the pillars, lay the board in it with its end in
@@ -116,9 +118,12 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
 
 1. All eight nuts in and glued. The four at the face end are reached from the
    lid side and are hard to get at once the cradle is in.
-2. Board into the cradle with silicone; let it set.
-3. Cradle onto the pillars from the lid side, socket mouth against the end
-   wall opening; superglue.
+2. Cradle onto the pillars from the lid side, flush against the end wall;
+   superglue. **Without the board**: the board cannot come down with it, since
+   its nose has to enter the wall sideways.
+3. Silicone on the cradle. Board in nose first, tilted a few degrees: socket
+   through the opening, board edge into the slot, then lower the tail between
+   the back ribs.
 4. Panel hardware, wiring, foil, plates.
 
 ## Checked in the model

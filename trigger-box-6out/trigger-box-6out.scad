@@ -95,14 +95,20 @@ brd_l      = 36.3;  // along X: sets the back ribs (see above)
 brd_w      = 19;    // across Y
 brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 2.0;   // socket overhang past the board edge (measured by hand)
-// The end wall is NOTCHED on the inside: a pocket the width of the board, so
-// the board's end goes into the wall. Its depth is whatever puts the socket
+// The end wall is NOTCHED on the inside: a slim slot the width of the board
+// and only `notch_h` tall, so the board's edge goes into the wall and is held
+// there, top and bottom. The socket shell rides above the board and leaves
+// through the opening, which the slot runs into. The board goes in nose
+// first, tilted a few degrees, AFTER the cradle is glued down; its tail then
+// drops between the back ribs. Its depth is whatever puts the socket
 // mouth flush with the outside: the wall less the socket's overhang. What is
 // left of the wall beyond the pocket is a skin exactly as thick as the
 // overhang, and only the shell passes through it. So `usb_over` matters: too
 // small a figure leaves the socket proud of the wall, too large leaves it shy.
 usb_notch  = wall - usb_over;   // pocket depth into the end wall
-notch_cl   = 0.3;   // pocket clearance around the board
+notch_cl   = 0.3;   // slot clearance at each side of the board
+notch_h    = 2.0;   // slot height: the 1.6 board plus 0.2 above and below
+                    // (VERIFY — board thickness is not measured)
 brd_x0     = -inner.x/2 - usb_notch;   // board edge at the USB end, on the
                                        // pocket floor; shell mouth at the outside face
 // The board lies flat on the LID side of the cradle, components toward the
@@ -385,10 +391,10 @@ module frame_model() {
     translate([-inner.x/2 - wall, 0, usb_z])
       rotate([0, -90, 0]) translate([0, 0, -wall - 0.01])
         rect_cutout(wall + 0.02, usb_shell_h, usb_shell_w, 1.5);
-    // notch for the board's end, inside face of the same wall: board width,
-    // from just under the board to just over the socket shell
-    translate([-inner.x/2 - usb_notch, -brd_w/2 - notch_cl, seat_z - notch_cl])
-      cube([usb_notch + 0.01, brd_w + 2*notch_cl, brd_t + usb_shell_h + 2*notch_cl]);
+    // slot for the board's edge, inside face of the same wall: board width,
+    // notch_h tall, centred on the board's thickness
+    translate([-inner.x/2 - usb_notch, -brd_w/2 - notch_cl, seat_z + brd_t/2 - notch_h/2])
+      cube([usb_notch + 0.01, brd_w + 2*notch_cl, notch_h]);
     left_text("USB", 0, 30.5);
     // ---- right end: 10-32 ground/tether screw hole, wall center -------------
     translate([inner.x/2 + wall, gnd_y, gnd_zp])
@@ -523,7 +529,7 @@ module lid_part() {
 
 // ---- Fit test: print this before the frame ----------------------------------
 // The USB end of the real frame, cut off 3mm past the cradle and 4mm above the
-// top of the wall notch. It is the frame's own geometry in the frame's own print
+// top of the USB opening. It is the frame's own geometry in the frame's own print
 // attitude (rim down), so what fits here fits there: the four pillars at
 // their true spacing and length, the end wall with the USB opening at its
 // true height, and two corner posts with their face-end nut slots.
@@ -531,11 +537,11 @@ module lid_part() {
 // cable plugged in through the wall, and a nut in each slot.
 // The BNC, toggle and LED holes are not on it: their diameters are unchanged
 // from the eight-output box, where they were fit-tested.
-// Cut height: 4mm of wall above the top of the notch, so the USB opening and
+// Cut height: 4mm of wall above the top of the opening, so the USB opening and
 // the notch are whole and have a real roof over them. (Cutting relative to
 // the pillar ends sliced through the middle of the opening once the pillars
 // were shortened.)
-fit_top = seat_z - wall + brd_t + usb_shell_h + notch_cl + 4;
+fit_top = usb_z - wall + usb_shell_h/2 + fit + 4;   // 4mm over the opening
 module fit_test() {
   intersection() {
     frame_model();

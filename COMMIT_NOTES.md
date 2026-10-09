@@ -21,6 +21,7 @@
 - fix(enclosure): the six-output box's cradle back ribs are set from a fit against the first printed cradle and not from a measured board length: that print left 3 mm of give with the board pushed to the wall, and the board now goes 1 mm further into the wall notch, so the ribs move 4 mm toward the wall from where that print had them (2026-10-09T13:05:00-04:00)
 - fix(enclosure): the six-output box's cradle back ribs are eased 0.3 mm away from the wall so the board drops in (2026-10-09T13:10:00-04:00)
 - fix(enclosure): the six-output box's fit coupon was cut at a height set from the pillar ends. When the pillars were shortened the cut dropped to 14.2 mm and sliced through the middle of the USB opening and the wall notch (12.0 to 17.4 mm), so the coupon showed an open step where the notch should be and could not test the opening at all. The cut is now 4 mm above the top of the notch. The frame itself was never affected (2026-10-09T13:20:00-04:00)
+- feat(enclosure): the notch inside the six-output box's USB end wall is now a slim slot, 2 mm tall, in place of a pocket tall enough for the board and its socket together. The slot takes only the board's edge and holds it top and bottom, so the wall itself retains the board's nose; the socket shell rides above the board and leaves through the opening, which the slot runs into. The board therefore goes in nose first after the cradle is glued down, and the assembly order in the README is changed to say so (2026-10-09T13:35:00-04:00)
 
 <!-- version-bumps
 [
