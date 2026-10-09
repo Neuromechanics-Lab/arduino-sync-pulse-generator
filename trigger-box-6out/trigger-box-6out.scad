@@ -20,7 +20,7 @@
 // PARTS (no supports anywhere):
 //   frame     walls, nut posts, beams, pillars. Print RIM DOWN (face end on
 //             the plate): beams and lugs are first layer, pillars grow up.
-//   cradle    ASA. Base on the bed, ribs up.
+//   cradle    ASA. Socket face on the bed, ribs up.
 //   face      unchanged from the eight-output box. Face UP; import face +
 //             face_art into ONE Bambu Studio object (face_art -> filament 1).
 //   lid       flat as-is. Corner notches in the lip are larger than the
@@ -93,12 +93,12 @@ brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 1.0;   // socket overhang past the board edge (VERIFY — "a bit")
 brd_x0     = -inner.x/2 + usb_over;   // board edge at the USB end; the socket
                                       // mouth lands on the wall's inner face
-// The board lies flat, components toward the FACE plate, socket centred on
-// the opening. Its component side is therefore half a shell below usb_z, and
-// the cradle sits against its other side (toward the lid). Deployed face-up,
-// the board rests ON the cradle.
-brd_z      = usb_z + usb_shell_h/2;   // component-side surface
-seat_z     = brd_z + brd_t;           // cradle surface the board lies on
+// The board lies flat on the LID side of the cradle, components toward the
+// lid, socket centred on the opening. With the frame rim-down on the bench
+// (as printed, lid off) the cradle sits on the pillars and the board sits on
+// top of the cradle, right way up and in reach. Deployed face-up it is the
+// other way: the board is under the cradle, held by the silicone and ribs.
+seat_z     = usb_z - usb_shell_h/2 - brd_t;   // cradle surface the board lies on
 
 // ---- Face (floor exterior, z=0): icon + LED + wordmark ----------------------
 // Icon source: logo-icon-filled.svg (logo-icon.svg with all outline holes
@@ -164,8 +164,9 @@ brace_x     = [5, 55];
 // ---- Cradle (separate part, ASA) ---------------------------------------------
 // A flat base the board lies on, L ribs at the inner corners, side ribs near
 // the wall, and the wall end open for the socket. Two straps reach out to
-// four blind sockets that drop over the pillar ends, which locates it for the
-// glue. Silicone the board in; superglue the sockets to the pillars.
+// four blind sockets on the OPPOSITE face from the ribs; they drop over the
+// pillar ends, which locates it for the glue. Silicone the board in;
+// superglue the sockets to the pillars.
 crd_base_t  = 2.4;
 crd_rib_t   = 1.2;
 crd_rib_h   = 3.0;
@@ -177,7 +178,7 @@ crd_strap_w = pil_d + 3;             // strap width along X
 crd_x1      = brd_x0 + brd_l + crd_clear + crd_rib_t;   // inner end of the base
 crd_hw      = brd_w/2 + crd_clear + crd_rib_t;          // base half-width
 crd_strap_hw = pil_y + pil_d/2 + 1.5;                   // strap half-length
-pil_end_z   = seat_z + crd_sock - 0.1;   // 0.1 = glue line
+pil_end_z   = seat_z - crd_base_t + crd_sock - 0.1;   // 0.1 = glue line
 
 // ---- Corner posts with captive M3 nuts ---------------------------------------
 // Square blocks merged into the corners, on the same centres as the eight-
@@ -376,10 +377,9 @@ module frame_model() {
 }
 
 // ---- Cradle ------------------------------------------------------------------
-// Drawn at the board's x/y in the frame, seat face UP (z = crd_base_t), which
-// is how it prints. In the box it is turned over about the X axis: the seat
-// faces the face plate. It is symmetric in Y, so turning it over changes
-// nothing in plan.
+// Drawn at the board's x/y in the frame, seat face UP (z = crd_base_t) and
+// sockets opening DOWN (z = 0). That is both how it prints (sockets on the
+// bed, each roof a ~6mm bridge) and how it sits in the frame's coordinates.
 module cradle_2d() {
   translate([brd_x0, -crd_hw]) square([crd_x1 - brd_x0, 2*crd_hw]);
   for (x = pil_x)
@@ -404,16 +404,16 @@ module cradle_model() {
       }
     }
     for (x = pil_x, sy = [-1, 1])
-      translate([x, sy*pil_y, crd_base_t - crd_sock])
+      translate([x, sy*pil_y, -0.01])
         cylinder(d = pil_d + 2*crd_sock_cl, h = crd_sock + 0.01);
   }
 }
 // the cradle where it sits in the frame's final coordinates (preview only)
 module cradle_placed() {
-  translate([0, 0, seat_z - wall + crd_base_t]) rotate([180, 0, 0]) cradle_model();
+  translate([0, 0, seat_z - wall - crd_base_t]) cradle_model();
 }
 module board_placed() {
-  translate([brd_x0, -brd_w/2, brd_z - wall]) cube([brd_l, brd_w, brd_t]);
+  translate([brd_x0, -brd_w/2, seat_z - wall]) cube([brd_l, brd_w, brd_t]);
 }
 
 // ---- Face plate: flat, prints face-up (z=0 interior, z=wall = the face) ----

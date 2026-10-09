@@ -35,13 +35,19 @@ interference checks below pass, but nothing has been fitted in plastic. Print
 
 A flat base the board lies on, corner ribs 1.2 mm thick with 0.3 mm clearance,
 and the wall end open so the socket reaches the opening. Two straps carry four
-blind sockets that drop over the pillar ends, so the cradle locates itself.
+blind sockets on the opposite face from the ribs; they drop over the pillar
+ends, so the cradle locates itself.
 
-Print it in **ASA**, base on the bed. Silicone the board into it; superglue the
-sockets onto the pillars.
+Print it in **ASA**, socket face on the bed, ribs up. Silicone the board into
+it; superglue the sockets onto the pillars.
 
-The board lies with its components toward the face plate. Deployed face-up, it
-rests on the cradle rather than hanging from it.
+The board is on the lid side of the cradle, components toward the lid. With the
+frame rim-down on the bench and the lid off, the cradle sits on the pillars and
+the board sits on top of it, right way up and reachable. Deployed face-up the
+board is underneath the cradle, held by the silicone and the ribs.
+
+The cradle's underside is 9.9 mm behind the face plate, directly over the face
+LED. That is the room the LED's back and its bent leads have.
 
 ## Captive nuts
 
@@ -101,7 +107,8 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
 Intersection volumes, all zero: cradle–frame, board–frame, board–cradle, eight
 nuts–frame, lid–frame, face plate–frame, and nominal envelopes for the toggle,
 the seven BNC bodies and the LED against the frame, the cradle and the board.
-The pillars enter the cradle sockets by 1.3 mm.
+The pillars (7.2 mm long) enter the cradle sockets by 1.3 mm. The LED envelope
+used is Ø14 × 9 mm behind the face plate.
 
 Not checked: anything that depends on a number in the table above.
 
