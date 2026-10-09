@@ -16,7 +16,7 @@ interference checks below pass, but nothing has been fitted in plastic. Print
 |---|---|---|
 | Outputs | 8 BNC | **6 BNC**, in the positions of the old outputs 3–8, numbered 1–6 |
 | Power | barrel jack, left end | **none** — USB-C opening in its place, dead centre in the end wall |
-| Board | perfboard hung from two beams | Pro Micro in a **separate cradle**, glued onto four pillars |
+| Board | perfboard hung from two beams | Pro Micro in a **separate cradle**, screwed onto four pillars |
 | Plate screws | M3 self-tappers into the posts | **M3 machine screws into captive hex nuts**, both plates |
 | TRIG IN + toggle | left half of the rear wall | **centre of the rear wall** |
 | Ground screw | right end | unchanged |
@@ -53,17 +53,22 @@ slot.
 ## The cradle
 
 A flat base the board lies on, corner ribs 1.2 mm thick with 0.3 mm clearance,
-and the wall end open so the socket reaches the opening. Two straps carry four
-blind sockets on the opposite face from the ribs; they drop over the pillar
-ends, so the cradle locates itself.
+and the wall end open so the socket reaches the opening. Two straps reach out
+to four pillars and sit flat on their ends.
 
-Print it in **ASA**, socket face on the bed, ribs up. Silicone the board into
-it; superglue the sockets onto the pillars.
+**It is screwed on, not glued.** An M3 × 12 pan head goes in from the lid side,
+through the strap, down the pillar and through the beam, into a hex nut
+sitting in a pocket on the beam's outer (rim) face. The nut drops in from the
+face side; tightening pulls it into the pocket floor, and the face plate then
+covers it. So the cradle comes out again with four screws.
+
+Print it in **ASA**, flat side on the bed, ribs up. Silicone the board into it.
 
 The board is on the lid side of the cradle, components toward the lid. With the
 frame rim-down on the bench and the lid off, the cradle sits on the pillars and
 the board sits on top of it, right way up and reachable. Deployed face-up the
-board is underneath the cradle, held by the silicone and the ribs.
+board is underneath the cradle, held by the silicone, the ribs and the wall
+slot.
 
 The cradle's underside is 9.9 mm behind the face plate, directly over the face
 LED. That is the room the LED's back and its bent leads have.
@@ -73,9 +78,11 @@ LED. That is the room the LED's back and its bent leads have.
 Each corner post is a 10 mm block with, at each end, a clearance hole down its
 axis and a slot in its side 3.5 mm in. The slot opens toward the middle of the
 box. Slide an M3 hex nut in until it is under the hole, then a drop of
-superglue at the slot mouth. Eight nuts.
+superglue at the slot mouth. Eight nuts for the plates, plus the four in the
+beam pockets for the cradle: **twelve M3 hex nuts**.
 
-Screws: **M3 × 10 countersunk**, eight (3 mm plate + 3.5 mm + 2.4 mm nut).
+Screws: **M3 × 10 countersunk**, eight, for the plates (3 mm plate + 3.5 mm +
+2.4 mm nut); **M3 × 12 pan head**, four, for the cradle.
 
 The lid's lip has larger corner notches for these posts, and the inside
 attribution text is gone (it did not show on the print). **The eight-output
@@ -104,10 +111,10 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
 1. `trigger6-fit_test` — the USB end of the real frame, cut off just past the
    cradle and 4 mm above the top of the USB opening; print it **rim down** like the
    frame. It has all four pillars at their true spacing, the end wall with the
-   USB opening and notch at their true height, and two corner posts with nut
-   slots. Seat the cradle on the pillars, lay the board in it with its end in
-   the notch, check the socket comes out flush, plug the cable in, and try a
-   nut in each slot. (BNC, toggle and LED hole sizes are
+   USB opening and slot at their true height, two corner posts with nut slots,
+   and the four nut pockets. Screw the cradle to the pillars, put the board in
+   nose first, check the socket comes out flush, plug the cable in, and try a
+   nut in each slot and pocket. (BNC, toggle and LED hole sizes are
    unchanged from the eight-output box, where they were fit-tested.)
 2. `trigger6-cradle` — ASA, base down.
 3. `trigger6-frame` — **rim down** (face end on the plate), no supports.
@@ -116,23 +123,26 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
 
 ## Assembly order
 
-1. All eight nuts in and glued. The four at the face end are reached from the
-   lid side and are hard to get at once the cradle is in.
-2. Cradle onto the pillars from the lid side, flush against the end wall;
-   superglue. **Without the board**: the board cannot come down with it, since
-   its nose has to enter the wall sideways.
-3. Silicone on the cradle. Board in nose first, tilted a few degrees: socket
+1. The eight post nuts in and glued. The four at the face end are reached from
+   the lid side and are hard to get at once the cradle is in.
+2. Four nuts into the beam pockets from the face side (a drop of glue keeps
+   them from falling out before the face plate is on).
+3. Cradle onto the pillars from the lid side, flush against the end wall;
+   four M3 × 12. **Without the board**: the board cannot come down with it,
+   since its nose has to enter the wall sideways.
+4. Silicone on the cradle. Board in nose first, tilted a few degrees: socket
    through the opening, board edge into the slot, then lower the tail between
    the back ribs.
-4. Panel hardware, wiring, foil, plates.
+5. Panel hardware, wiring, foil, plates.
 
 ## Checked in the model
 
 Intersection volumes, all zero: cradle–frame, board–frame, board–cradle, eight
-nuts–frame, lid–frame, face plate–frame, and nominal envelopes for the toggle,
+post nuts–frame, cradle screws and their nuts against frame, cradle, board and
+bought parts, lid–frame, face plate–frame, and nominal envelopes for the toggle,
 the seven BNC bodies and the LED against the frame, the cradle and the board.
-The pillars (7.2 mm long) enter the cradle sockets by 1.3 mm. The LED envelope
-used is Ø14 × 9 mm behind the face plate.
+The pillars are 5.9 mm long and the cradle's straps bear flat on their ends.
+The LED envelope used is Ø14 × 9 mm behind the face plate.
 
 Not checked: anything that depends on a number in the table above.
 

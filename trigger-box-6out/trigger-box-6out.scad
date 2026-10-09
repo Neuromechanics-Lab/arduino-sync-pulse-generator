@@ -9,18 +9,19 @@
 //     which comes through the end wall where the barrel jack was and ends
 //     flush with the outside. The board's end sits in a notch in that wall.
 //   * The board sits in a separate CRADLE (print in ASA), siliconed in. The
-//     cradle is superglued onto four pillars that drop from the top of the
-//     frame: one flush cross beam and two wall lugs.
+//     cradle is SCREWED onto four pillars that drop from the top of the
+//     frame (one flush cross beam and two wall lugs): M3 x 12 through the
+//     cradle and the pillar into a nut pocketed in the beam's rim face.
 //   * Plates are held by M3 MACHINE screws into hex nuts. Each corner post
 //     has a side slot at each end; a nut slides in from inside the box and is
-//     glued. Eight nuts: four for the face plate, four for the lid.
+//     glued. Twelve nuts in all: four face plate, four lid, four cradle.
 //   * TRIG IN and the mode toggle move to the middle of the rear wall, out of
 //     the board's way.
 //
 // PARTS (no supports anywhere):
 //   frame     walls, nut posts, beams, pillars. Print RIM DOWN (face end on
 //             the plate): beams and lugs are first layer, pillars grow up.
-//   cradle    ASA. Socket face on the bed, ribs up.
+//   cradle    ASA. Flat side on the bed, ribs up.
 //   face      unchanged from the eight-output box. Face UP; import face +
 //             face_art into ONE Bambu Studio object (face_art -> filament 1).
 //   lid       flat as-is. Corner notches in the lip are larger than the
@@ -172,9 +173,18 @@ beam_h      = 4;     // beam thickness in Z
 //   row 1 hangs from two short LUGS off the long walls, with nothing spanning
 //         the middle — the face LED comes through the plate at x = -51, right
 //         between them, and a beam there would sit on it.
-pil_x       = [-66, -50];
+pil_x       = [-64, -50];   // row 0 leaves 8mm between its pillars and the
+                            // corner posts, for sliding nuts into those posts
 pil_y       = 17;    // +/- : well clear of the board and its ribs
-pil_d       = 6;
+pil_d       = 8;     // carries an M3 clearance hole down its axis
+// The cradle is SCREWED on: an M3 from the lid side goes through the cradle's
+// strap, down the pillar and through the beam, into a hex nut that sits in a
+// pocket on the beam's outer (rim) face. The nut drops in from the face side;
+// tightening pulls it into the pocket floor, and the face plate covers it.
+// Printed rim-down the pocket is open on the bed. Each pillar stands on a
+// round boss so there is plastic around the pocket.
+boss_d      = 10.5;
+// Screw: strap 2.4 + pillar 5.9 + beam 4 = 12.3 head to rim -> M3 x 12 pan head.
 lug_reach   = pil_y - pil_d/2 - 1;   // lug runs from the wall in to here
 // Two plain beams brace the rest of the long walls (they carry nothing).
 brace_x     = [5, 55];
@@ -182,16 +192,13 @@ brace_x     = [5, 55];
 // ---- Cradle (separate part, ASA) ---------------------------------------------
 // A flat base the board lies on, L ribs at the inner corners, side ribs near
 // the wall, and the wall end open for the socket. Two straps reach out to
-// four blind sockets on the OPPOSITE face from the ribs; they drop over the
-// pillar ends, which locates it for the glue. Silicone the board in;
-// superglue the sockets to the pillars.
+// four M3 clearance holes over the pillars; the straps sit flat on the pillar
+// ends. Silicone the board in.
 crd_base_t  = 2.4;
 crd_rib_t   = 1.2;
 crd_rib_h   = 3.0;
 crd_clear   = 0.3;   // board to rib
 crd_leg     = 6;     // rib leg length
-crd_sock    = 1.4;   // socket depth
-crd_sock_cl = 0.15;  // radial clearance, pillar in socket
 crd_strap_w = pil_d + 3;             // strap width along X
 crd_x0      = -inner.x/2;            // wall end of the base: FLUSH against the
                                      // end wall. A base that stops short of the
@@ -200,8 +207,8 @@ crd_x0      = -inner.x/2;            // wall end of the base: FLUSH against the
                                      // into the notch.
 crd_x1      = brd_x0 + brd_l + crd_clear + crd_rib_t;   // inner end of the base
 crd_hw      = brd_w/2 + crd_clear + crd_rib_t;          // base half-width
-crd_strap_hw = pil_y + pil_d/2 + 1.5;                   // strap half-length
-pil_end_z   = seat_z - crd_base_t + crd_sock - 0.1;   // 0.1 = glue line
+crd_strap_hw = pil_y + 4.5;                              // strap half-length
+pil_end_z   = seat_z - crd_base_t;   // pillar ends bear on the straps
 
 // ---- Corner posts with captive M3 nuts ---------------------------------------
 // Square blocks merged into the corners, on the same centres as the eight-
@@ -217,6 +224,7 @@ nut_cl      = 0.3;   // slot clearance, on flats and on thickness
 nut_in      = 3.5;   // plastic between the post end and the slot
 screw_cl_d  = 3.4;   // M3 clearance
 screw_past  = 4;     // hole continues this far past the nut for the screw tip
+nut_pocket  = nut_t + 0.2;   // depth of the cradle nuts' pockets in the beams
 // Screw: plate 3 + nut_in 3.5 + nut 2.4 = 8.9  ->  M3 x 10 countersunk, both ends.
 
 // ---- Lid keyhole mounts -----------------------------------------------------
@@ -351,12 +359,17 @@ module frame_model() {
       for (sy = [-1, 1])
         translate([pil_x[1] - beam_w/2, sy > 0 ? lug_reach : -inner.y/2, wall])
           cube([beam_w, inner.y/2 - lug_reach, beam_h]);
-      // the four pillars, with a flared root
-      for (x = pil_x, sy = [-1, 1])
-        translate([x, sy*pil_y, wall + beam_h]) {
+      // the four pillars, each on a boss in the beam plane
+      for (x = pil_x, sy = [-1, 1]) {
+        translate([x, sy*pil_y, wall]) cylinder(d = boss_d, h = beam_h);
+        translate([x, sy*pil_y, wall + beam_h])
           cylinder(d = pil_d, h = pil_end_z - wall - beam_h);
-          cylinder(d1 = pil_d + 2, d2 = pil_d, h = 2);
-        }
+      }
+    }
+    // ---- cradle screws: hole down each pillar, nut pocket on the rim face ---
+    for (x = pil_x, sy = [-1, 1]) translate([x, sy*pil_y, 0]) {
+      translate([0, 0, wall - 0.5]) cylinder(d = screw_cl_d, h = pil_end_z - wall + 1);
+      translate([0, 0, wall - 0.01]) linear_extrude(nut_pocket + 0.01) hex2d(nut_af + nut_cl);
     }
     // ---- captive nuts, both ends of every post -----------------------------
     for (p = post_xy(inner)) {
@@ -404,9 +417,9 @@ module frame_model() {
 }
 
 // ---- Cradle ------------------------------------------------------------------
-// Drawn at the board's x/y in the frame, seat face UP (z = crd_base_t) and
-// sockets opening DOWN (z = 0). That is both how it prints (sockets on the
-// bed, each roof a ~6mm bridge) and how it sits in the frame's coordinates.
+// Drawn at the board's x/y in the frame, seat face UP (z = crd_base_t), flat
+// underside on the bed. That is both how it prints and how it sits in the
+// frame's coordinates.
 module cradle_2d() {
   translate([crd_x0, -crd_hw]) square([crd_x1 - crd_x0, 2*crd_hw]);
   for (x = pil_x)
@@ -431,8 +444,8 @@ module cradle_model() {
       }
     }
     for (x = pil_x, sy = [-1, 1])
-      translate([x, sy*pil_y, -0.01])
-        cylinder(d = pil_d + 2*crd_sock_cl, h = crd_sock + 0.01);
+      translate([x, sy*pil_y, -0.5])
+        cylinder(d = screw_cl_d, h = crd_base_t + 1);
   }
 }
 // the cradle where it sits in the frame's final coordinates (preview only)
@@ -533,8 +546,8 @@ module lid_part() {
 // attitude (rim down), so what fits here fits there: the four pillars at
 // their true spacing and length, the end wall with the USB opening at its
 // true height, and two corner posts with their face-end nut slots.
-// Try: the cradle on all four pillars, the board in the cradle with the
-// cable plugged in through the wall, and a nut in each slot.
+// Try: the cradle screwed to all four pillars, the board in nose first with
+// the cable plugged in, and a nut in each slot and pocket.
 // The BNC, toggle and LED holes are not on it: their diameters are unchanged
 // from the eight-output box, where they were fit-tested.
 // Cut height: 4mm of wall above the top of the opening, so the USB opening and
