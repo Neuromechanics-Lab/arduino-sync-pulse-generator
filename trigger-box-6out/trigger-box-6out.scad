@@ -85,9 +85,10 @@ usb_shell_h = 3.2;  // socket shell height above the board (VERIFY — nominal)
 
 // ---- The board ---------------------------------------------------------------
 // 19 wide, socket 2 past the board edge: measured by hand on 2026-10-09.
-// Length: 38 was measured over the socket, so the bare board is 36 (a 38
-// pocket left ~3 of slack behind the board). Thickness is NOT measured.
-brd_l      = 36;    // along X, bare board (VERIFY — inferred, see above)
+// Length: 37.5 measured over the socket, so the bare board is 35.5. That
+// agrees with the ~3 of slack seen behind the board in a 38 pocket.
+// Thickness is NOT measured.
+brd_l      = 35.5;  // along X, bare board (VERIFY — 37.5 overall less the socket's 2)
 brd_w      = 19;    // across Y
 brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 2.0;   // socket overhang past the board edge (measured by hand)

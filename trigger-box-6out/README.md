@@ -83,7 +83,7 @@ lid does not fit this frame.** The face plate is the same part.
 | parameter | value | source |
 |---|---|---|
 | `brd_w` | 19 mm | measured by hand, 2026-10-09 |
-| `brd_l` (bare board) | 36 mm | inferred: 38 measured over the socket, less its 2 mm overhang |
+| `brd_l` (bare board) | 35.5 mm | 37.5 measured over the socket, less its 2 mm overhang |
 | `brd_t` | 1.6 mm | nominal |
 | `usb_over` (socket past the board edge) | 2.0 mm | measured by hand, 2026-10-09 |
 | `usb_shell_h` | 3.2 mm | nominal |
