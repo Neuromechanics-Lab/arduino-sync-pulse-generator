@@ -522,8 +522,8 @@ module lid_part() {
 }
 
 // ---- Fit test: print this before the frame ----------------------------------
-// The USB end of the real frame, cut off 3mm past the cradle and 3mm above the
-// pillar ends. It is the frame's own geometry in the frame's own print
+// The USB end of the real frame, cut off 3mm past the cradle and 4mm above the
+// top of the wall notch. It is the frame's own geometry in the frame's own print
 // attitude (rim down), so what fits here fits there: the four pillars at
 // their true spacing and length, the end wall with the USB opening at its
 // true height, and two corner posts with their face-end nut slots.
@@ -531,11 +531,16 @@ module lid_part() {
 // cable plugged in through the wall, and a nut in each slot.
 // The BNC, toggle and LED holes are not on it: their diameters are unchanged
 // from the eight-output box, where they were fit-tested.
+// Cut height: 4mm of wall above the top of the notch, so the USB opening and
+// the notch are whole and have a real roof over them. (Cutting relative to
+// the pillar ends sliced through the middle of the opening once the pillars
+// were shortened.)
+fit_top = seat_z - wall + brd_t + usb_shell_h + notch_cl + 4;
 module fit_test() {
   intersection() {
     frame_model();
     translate([-inner.x/2 - wall - 1, -inner.y, -1])
-      cube([wall + 1 + (crd_x1 + inner.x/2) + 3, 2*inner.y, pil_end_z - wall + 3 + 1]);
+      cube([wall + 1 + (crd_x1 + inner.x/2) + 3, 2*inner.y, fit_top + 1]);
   }
 }
 

@@ -20,6 +20,7 @@
 - fix(enclosure): the previous note was wrong: 37.5 mm is the bare board, not a length over the socket. The slack behind the board came from the cradle's base stopping short of the end wall, so the board could slide forward off its back ribs. The pocket is 37.5 mm and the base now sits flush against the wall (2026-10-09T12:55:00-04:00)
 - fix(enclosure): the six-output box's cradle back ribs are set from a fit against the first printed cradle and not from a measured board length: that print left 3 mm of give with the board pushed to the wall, and the board now goes 1 mm further into the wall notch, so the ribs move 4 mm toward the wall from where that print had them (2026-10-09T13:05:00-04:00)
 - fix(enclosure): the six-output box's cradle back ribs are eased 0.3 mm away from the wall so the board drops in (2026-10-09T13:10:00-04:00)
+- fix(enclosure): the six-output box's fit coupon was cut at a height set from the pillar ends. When the pillars were shortened the cut dropped to 14.2 mm and sliced through the middle of the USB opening and the wall notch (12.0 to 17.4 mm), so the coupon showed an open step where the notch should be and could not test the opening at all. The cut is now 4 mm above the top of the notch. The frame itself was never affected (2026-10-09T13:20:00-04:00)
 
 <!-- version-bumps
 [

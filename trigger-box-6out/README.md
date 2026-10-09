@@ -100,7 +100,7 @@ the `.scad`.
 STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl`.
 
 1. `trigger6-fit_test` — the USB end of the real frame, cut off just past the
-   cradle and just above the pillar ends; print it **rim down** like the
+   cradle and 4 mm above the top of the wall notch; print it **rim down** like the
    frame. It has all four pillars at their true spacing, the end wall with the
    USB opening and notch at their true height, and two corner posts with nut
    slots. Seat the cradle on the pillars, lay the board in it with its end in
