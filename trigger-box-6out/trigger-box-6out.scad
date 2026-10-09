@@ -216,8 +216,9 @@ pil_end_z   = seat_z;   // pillar ends bear on the straps, in the seat plane
 // Square blocks merged into the corners, on the same centres as the eight-
 // output box's round posts, so the face plate's four holes still line up.
 // Each end of each block has a clearance hole down its axis and a sideways
-// slot a few mm in. The slot opens toward the middle of the box (along X); a
-// hex nut slides in until it is under the hole. Printed rim-down, each slot's
+// slot a few mm in. The slot runs at 45 degrees, out through the post's inner
+// corner toward the middle of the box; a hex nut slides in until it is under
+// the hole. Printed rim-down, each slot's
 // roof is a ~6mm bridge.
 post_w      = 10;    // block side
 nut_af      = 5.5;   // M3 hex nut across flats (VERIFY on fit_test — nominal)
@@ -321,13 +322,15 @@ module nut_posts() {
 // (cuts run toward +z from z0), -1 at the lid end.
 module nut_cut(p, z0, up) {
   sx = p.x > 0 ? 1 : -1;
+  sy = p.y > 0 ? 1 : -1;
+  a  = atan2(-sy, -sx);        // 45 degrees, pointing from the corner into the box
   sh = nut_t + nut_cl;
   translate([p.x, p.y, up > 0 ? z0 - 0.5 : z0 - (nut_in + sh + screw_past)])
     cylinder(d = screw_cl_d, h = nut_in + sh + screw_past + 0.5);
   translate([0, 0, up > 0 ? z0 + nut_in : z0 - nut_in - sh])
     linear_extrude(sh) hull() {
-      translate(p) hex2d(nut_af + nut_cl);
-      translate([p.x - sx*post_w, p.y]) hex2d(nut_af + nut_cl);
+      translate(p) rotate(a) hex2d(nut_af + nut_cl);
+      translate([p.x - sx*post_w, p.y - sy*post_w]) rotate(a) hex2d(nut_af + nut_cl);
     }
 }
 

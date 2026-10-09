@@ -86,8 +86,8 @@ component side is 17.1 mm behind the face plate.
 ## Captive nuts
 
 Each corner post is a 10 mm block with, at each end, a clearance hole down its
-axis and a slot in its side 3.5 mm in. The slot opens toward the middle of the
-box. Slide an M3 hex nut in until it is under the hole, then a drop of
+axis and a slot 3.5 mm in. The slot runs at 45°, out through the post's inner
+corner toward the middle of the box. Slide an M3 hex nut in until it is under the hole, then a drop of
 superglue at the slot mouth. Eight nuts for the plates, plus four in the
 pillars for the cradle: **twelve M3 hex nuts**.
 
