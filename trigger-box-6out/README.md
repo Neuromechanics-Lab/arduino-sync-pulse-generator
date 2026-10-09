@@ -6,12 +6,12 @@ Micro's own USB-C socket showing through the end wall. Everything not
 described here (labels, face art, copper foil, keyholes, the electrical notes)
 is as in the eight-output README.
 
-**Status, 2026-10-09: the fit test has been printed and works; the full frame,
-lid and face plate have not been printed.** The fit test is a slice of the
-frame's own geometry (checked: the two are identical inside the cut), so the
-USB end of the frame is what was tested. The rest of the frame — the six BNC
-holes, the rear controls, the lid-end nut slots, the lid's lip against the
-larger posts — is unchanged or untested.
+**Status, 2026-10-09: a fit test of the USB end was printed and fitted, and
+showed the board mounted upside down. The board has since been turned over
+(it now lies on the face-plate side of the cradle), which moves the wall slot
+and lengthens the pillars. That revised USB end has NOT been printed.** The
+cradle part itself is unchanged by the turn-over. Print `fit_test` again
+before the frame.
 
 ## What changed, and why
 
@@ -42,8 +42,8 @@ outside face**. The opening is the shell plus 0.25 mm clearance a side
 
 To get the socket that far out, the inside of the wall has a slim slot the
 width of the board and 2 mm tall, and the board's edge sits in it. The slot
-holds the board's nose top and bottom; the socket shell rides above the board
-and leaves through the opening, which the slot runs into. The slot's depth is
+holds the board's nose top and bottom; the socket shell sits on the board's
+face-plate side and leaves through the opening, which the slot runs into. The slot's depth is
 the wall (3 mm) less the socket's overhang past the board edge: with the
 measured 2 mm overhang, a 1 mm slot and a 2 mm skin.
 
@@ -71,14 +71,17 @@ nor the screw comes near the face plate.
 
 Print it in **ASA**, flat side on the bed, ribs up. Silicone the board into it.
 
-The board is on the lid side of the cradle, components toward the lid. With the
-frame rim-down on the bench and the lid off, the cradle sits on the pillars and
-the board sits on top of it, right way up and reachable. Deployed face-up the
-board is underneath the cradle, held by the silicone, the ribs and the wall
-slot.
+The board is on the **face-plate side** of the cradle, components toward the
+face plate. Deployed face-up it is right way up and rests on the cradle. The
+cradle is between the board and the lid, so with the lid off you see the
+cradle's back; the board is reached from the face side.
 
-The cradle's underside is 9.9 mm behind the face plate, directly over the face
-LED. That is the room the LED's back and its bent leads have.
+The pillars run from the rim to the cradle's seat plane, beside the board
+(18.7 mm), and the cradle's straps bear on their ends with the same face the
+board lies on. The cradle is the same printed part either way up.
+
+The face LED hangs in from the face plate over the board's tail. The board's
+component side is 17.1 mm behind the face plate.
 
 ## Captive nuts
 
@@ -135,12 +138,13 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
    the lid side and are hard to get at once the cradle is in.
 2. Four nuts into the pillar slots, from the middle of the box outward, and
    glued.
-3. Cradle onto the pillars from the lid side, flush against the end wall;
-   four M3 × 8. **Without the board**: the board cannot come down with it,
-   since its nose has to enter the wall sideways.
-4. Silicone on the cradle. Board in nose first, tilted a few degrees: socket
-   through the opening, board edge into the slot, then lower the tail between
-   the back ribs.
+3. Cradle onto the pillars from the lid side, ribs toward the face plate,
+   flush against the end wall; four M3 × 8. **Without the board**: the board
+   cannot go in with it, since its nose has to enter the wall sideways.
+4. Turn the frame over. Silicone on the cradle. Board in from the face side,
+   through the open rim beyond the cross beam, components toward you: slide
+   it toward the end wall, socket through the opening and board edge into the
+   slot, then press the tail down between the back ribs.
 5. Panel hardware, wiring, foil, plates.
 
 ## Checked in the model
@@ -149,8 +153,8 @@ Intersection volumes, all zero: cradle–frame, board–frame, board–cradle, e
 post nuts–frame, cradle screws and their nuts against frame, cradle, board and
 bought parts, lid–frame, face plate–frame, and nominal envelopes for the toggle,
 the seven BNC bodies and the LED against the frame, the cradle and the board.
-The pillars stand 5.9 mm above the beam plane and the cradle's straps bear flat
-on their ends.
+The pillars are 18.7 mm tall from the rim and the cradle's straps bear flat on
+their ends.
 The LED envelope used is Ø14 × 9 mm behind the face plate.
 
 Not checked: anything that depends on a number in the table above.

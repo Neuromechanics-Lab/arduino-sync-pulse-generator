@@ -97,10 +97,11 @@ brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 2.0;   // socket overhang past the board edge (measured by hand)
 // The end wall is NOTCHED on the inside: a slim slot the width of the board
 // and only `notch_h` tall, so the board's edge goes into the wall and is held
-// there, top and bottom. The socket shell rides above the board and leaves
-// through the opening, which the slot runs into. The board goes in nose
-// first, tilted a few degrees, AFTER the cradle is glued down; its tail then
-// drops between the back ribs. Its depth is whatever puts the socket
+// there, top and bottom. The socket shell sits on the board's face-plate side
+// and leaves through the opening, which the slot runs into. The board goes in
+// AFTER the cradle is screwed down, from the face side: through the open rim
+// beyond the cross beam, slid toward the wall nose first, tail then pressed
+// onto the cradle between the back ribs. Its depth is whatever puts the socket
 // mouth flush with the outside: the wall less the socket's overhang. What is
 // left of the wall beyond the pocket is a skin exactly as thick as the
 // overhang, and only the shell passes through it. So `usb_over` matters: too
@@ -111,12 +112,13 @@ notch_h    = 2.0;   // slot height: the 1.6 board plus 0.2 above and below
                     // (VERIFY — board thickness is not measured)
 brd_x0     = -inner.x/2 - usb_notch;   // board edge at the USB end, on the
                                        // pocket floor; shell mouth at the outside face
-// The board lies flat on the LID side of the cradle, components toward the
-// lid, socket centred on the opening. With the frame rim-down on the bench
-// (as printed, lid off) the cradle sits on the pillars and the board sits on
-// top of the cradle, right way up and in reach. Deployed face-up it is the
-// other way: the board is under the cradle, held by the silicone and ribs.
-seat_z     = usb_z - usb_shell_h/2 - brd_t;   // cradle surface the board lies on
+// The board lies flat on the FACE side of the cradle, components toward the
+// face plate, socket centred on the opening. Deployed (face up) the board is
+// right way up and RESTS ON the cradle. The cradle is therefore between the
+// board and the lid: with the lid off you see the cradle's back, and the
+// board is reached from the face side.
+seat_z     = usb_z + usb_shell_h/2 + brd_t;   // cradle surface the board lies on
+                                              // (board spans seat_z - brd_t .. seat_z)
 
 // ---- Face (floor exterior, z=0): icon + LED + wordmark ----------------------
 // Icon source: logo-icon-filled.svg (logo-icon.svg with all outline holes
@@ -169,7 +171,8 @@ beam_h      = 4;     // beam thickness in Z
 
 // Four PILLARS carry the cradle, two each side of the board. Each is a
 // square block built against the long wall, from the rim plane to the
-// cradle's underside, so it is part of the wall rather than a free post.
+// cradle's seat plane (beside the board), so it is part of the wall rather
+// than a free post.
 // Row 0 also has a full cross beam through it, for bracing. Row 1 has none:
 // the face LED comes through the plate at x = -51, between those two.
 //
@@ -207,7 +210,7 @@ crd_x0      = -inner.x/2;            // wall end of the base: FLUSH against the
 crd_x1      = brd_x0 + brd_l + crd_clear + crd_rib_t;   // inner end of the base
 crd_hw      = brd_w/2 + crd_clear + crd_rib_t;          // base half-width
 crd_strap_hw = pil_y + 4.5;                              // strap half-length
-pil_end_z   = seat_z - crd_base_t;   // pillar ends bear on the straps
+pil_end_z   = seat_z;   // pillar ends bear on the straps, in the seat plane
 
 // ---- Corner posts with captive M3 nuts ---------------------------------------
 // Square blocks merged into the corners, on the same centres as the eight-
@@ -404,7 +407,7 @@ module frame_model() {
         rect_cutout(wall + 0.02, usb_shell_h, usb_shell_w, 1.5);
     // slot for the board's edge, inside face of the same wall: board width,
     // notch_h tall, centred on the board's thickness
-    translate([-inner.x/2 - usb_notch, -brd_w/2 - notch_cl, seat_z + brd_t/2 - notch_h/2])
+    translate([-inner.x/2 - usb_notch, -brd_w/2 - notch_cl, seat_z - brd_t/2 - notch_h/2])
       cube([usb_notch + 0.01, brd_w + 2*notch_cl, notch_h]);
     left_text("USB", 0, 30.5);
     // ---- right end: 10-32 ground/tether screw hole, wall center -------------
@@ -416,8 +419,10 @@ module frame_model() {
 
 // ---- Cradle ------------------------------------------------------------------
 // Drawn at the board's x/y in the frame, seat face UP (z = crd_base_t), flat
-// underside on the bed. That is both how it prints and how it sits in the
-// frame's coordinates.
+// underside on the bed, which is how it prints. In the frame it is turned
+// over about the X axis so the seat faces the face plate; it is symmetric in
+// Y, so turning it over changes nothing in plan. The straps bear on the
+// pillar ends with the same face the board lies on.
 module cradle_2d() {
   translate([crd_x0, -crd_hw]) square([crd_x1 - crd_x0, 2*crd_hw]);
   for (x = pil_x)
@@ -448,10 +453,10 @@ module cradle_model() {
 }
 // the cradle where it sits in the frame's final coordinates (preview only)
 module cradle_placed() {
-  translate([0, 0, seat_z - wall - crd_base_t]) cradle_model();
+  translate([0, 0, seat_z - wall + crd_base_t]) rotate([180, 0, 0]) cradle_model();
 }
 module board_placed() {
-  translate([brd_x0, -brd_w/2, seat_z - wall]) cube([brd_l, brd_w, brd_t]);
+  translate([brd_x0, -brd_w/2, seat_z - wall - brd_t]) cube([brd_l, brd_w, brd_t]);
 }
 
 // ---- Face plate: flat, prints face-up (z=0 interior, z=wall = the face) ----
@@ -540,7 +545,7 @@ module lid_part() {
 
 // ---- Fit test: print this before the frame ----------------------------------
 // The USB end of the real frame, cut off 3mm past the cradle and 4mm above the
-// top of the USB opening. It is the frame's own geometry in the frame's own print
+// top of the wall slot. It is the frame's own geometry in the frame's own print
 // attitude (rim down), so what fits here fits there: the four pillars at
 // their true spacing and length, the end wall with the USB opening at its
 // true height, and two corner posts with their face-end nut slots.
@@ -548,11 +553,11 @@ module lid_part() {
 // board in nose first with the cable plugged in.
 // The BNC, toggle and LED holes are not on it: their diameters are unchanged
 // from the eight-output box, where they were fit-tested.
-// Cut height: 4mm of wall above the top of the opening, so the USB opening and
-// the notch are whole and have a real roof over them. (Cutting relative to
+// Cut height: 4mm of wall above the top of the slot, so the USB opening, the
+// slot and the pillars are whole and have a real roof over them. (Cutting relative to
 // the pillar ends sliced through the middle of the opening once the pillars
 // were shortened.)
-fit_top = usb_z - wall + usb_shell_h/2 + fit + 4;   // 4mm over the opening
+fit_top = seat_z - wall + (notch_h - brd_t)/2 + 4;   // 4mm over the slot
 module fit_test() {
   intersection() {
     frame_model();
