@@ -45,7 +45,8 @@ that is a 1 mm pocket and a 2 mm skin.
 
 `usb_over` decides whether the socket ends up flush: too small a figure
 leaves it proud of the wall, too large leaves it shy.
-The cradle stops at the wall; the board overhangs it into the pocket.
+The cradle's base sits flush against the wall; the board overhangs it into the
+pocket.
 
 ## The cradle
 
@@ -83,7 +84,7 @@ lid does not fit this frame.** The face plate is the same part.
 | parameter | value | source |
 |---|---|---|
 | `brd_w` | 19 mm | measured by hand, 2026-10-09 |
-| `brd_l` (bare board) | 35.5 mm | 37.5 measured over the socket, less its 2 mm overhang |
+| `brd_l` (bare board) | 37.5 mm | measured, 2026-10-09 |
 | `brd_t` | 1.6 mm | nominal |
 | `usb_over` (socket past the board edge) | 2.0 mm | measured by hand, 2026-10-09 |
 | `usb_shell_h` | 3.2 mm | nominal |

@@ -85,10 +85,8 @@ usb_shell_h = 3.2;  // socket shell height above the board (VERIFY — nominal)
 
 // ---- The board ---------------------------------------------------------------
 // 19 wide, socket 2 past the board edge: measured by hand on 2026-10-09.
-// Length: 37.5 measured over the socket, so the bare board is 35.5. That
-// agrees with the ~3 of slack seen behind the board in a 38 pocket.
-// Thickness is NOT measured.
-brd_l      = 35.5;  // along X, bare board (VERIFY — 37.5 overall less the socket's 2)
+// Length 37.5 (bare board), measured 2026-10-09. Thickness is NOT measured.
+brd_l      = 37.5;  // along X, bare board
 brd_w      = 19;    // across Y
 brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 2.0;   // socket overhang past the board edge (measured by hand)
@@ -184,8 +182,11 @@ crd_leg     = 6;     // rib leg length
 crd_sock    = 1.4;   // socket depth
 crd_sock_cl = 0.15;  // radial clearance, pillar in socket
 crd_strap_w = pil_d + 3;             // strap width along X
-crd_x0      = -inner.x/2 + 0.3;      // wall end of the base: just off the wall.
-                                     // The board overhangs it into the notch.
+crd_x0      = -inner.x/2;            // wall end of the base: FLUSH against the
+                                     // end wall. A base that stops short of the
+                                     // wall lets the board slide forward off its
+                                     // back ribs. The board overhangs the base
+                                     // into the notch.
 crd_x1      = brd_x0 + brd_l + crd_clear + crd_rib_t;   // inner end of the base
 crd_hw      = brd_w/2 + crd_clear + crd_rib_t;          // base half-width
 crd_strap_hw = pil_y + pil_d/2 + 1.5;                   // strap half-length

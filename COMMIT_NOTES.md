@@ -17,6 +17,7 @@
 - feat(enclosure): on the six-output box the USB-C socket now comes through the end wall and ends flush with the outside face, in place of sitting behind a 3 mm wall with an opening large enough for the cable's plug body. The inside of the wall has a pocket the width of the board, as deep as the wall less the socket's overhang (2 mm, measured), so the board's end sits in the wall; the opening through the remaining skin is the socket shell plus fit clearance, 9.5 x 3.7 mm. The cradle stops at the wall and the board overhangs it into the pocket (2026-10-09T12:25:00-04:00)
 - fix(enclosure): the six-output box's cradle pocket was 38 mm long, which was the board measured over its USB-C socket. With the board pushed to the wall that left about 3 mm of slack at the back ribs. The pocket is now 36 mm, the bare board: 38 less the socket's 2 mm overhang. Inferred, not re-measured (2026-10-09T12:35:00-04:00)
 - fix(enclosure): the six-output box's cradle pocket length is 35.5 mm: the board measures 37.5 mm over its USB-C socket, less the socket's 2 mm overhang (2026-10-09T12:45:00-04:00)
+- fix(enclosure): the previous note was wrong: 37.5 mm is the bare board, not a length over the socket. The slack behind the board came from the cradle's base stopping short of the end wall, so the board could slide forward off its back ribs. The pocket is 37.5 mm and the base now sits flush against the wall (2026-10-09T12:55:00-04:00)
 
 <!-- version-bumps
 [
