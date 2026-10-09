@@ -85,12 +85,10 @@ usb_plug_h = 7.0;   // plug body height (VERIFY — nominal)
 usb_shell_h = 3.2;  // socket shell height above the board (VERIFY — nominal)
 
 // ---- The board ---------------------------------------------------------------
-// Length 38 as measured by hand on 2026-10-09. Width is the standard Pro
-// Micro footprint (0.7 in = 17.8), NOT measured: a first figure of 24 made
-// the pocket far too wide. Thickness and the socket's overhang past the
-// board edge are NOT measured either.
+// 38 x 19 as measured by hand on 2026-10-09. Thickness and the socket's
+// overhang past the board edge are NOT measured.
 brd_l      = 38;    // along X
-brd_w      = 18;    // across Y (VERIFY — nominal)
+brd_w      = 19;    // across Y
 brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 1.0;   // socket overhang past the board edge (VERIFY — "a bit")
 brd_x0     = -inner.x/2 + usb_over;   // board edge at the USB end; the socket

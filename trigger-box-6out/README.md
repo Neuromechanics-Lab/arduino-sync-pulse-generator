@@ -66,8 +66,7 @@ lid does not fit this frame.** The face plate is the same part.
 
 | parameter | value | source |
 |---|---|---|
-| `brd_l` | 38 mm | measured by hand, 2026-10-09 |
-| `brd_w` | 18 mm | nominal Pro Micro width (17.8); a first figure of 24 was far too wide |
+| `brd_l`, `brd_w` | 38 × 19 mm | measured by hand, 2026-10-09 |
 | `brd_t` | 1.6 mm | nominal |
 | `usb_over` (socket past the board edge) | 1.0 mm | a guess |
 | `usb_shell_h` | 3.2 mm | nominal |
