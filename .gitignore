@@ -21,3 +21,6 @@ trigger-box/exports/
 # Demo/participant data — never committed. This repository is intended for
 # publication and must not carry recordings.
 testdata/
+
+# OpenSCAD generated exports (regenerate with trigger-box-6out/export-parts.sh)
+trigger-box-6out/exports/

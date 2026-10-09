@@ -1,0 +1,553 @@
+// ============================================================================
+// trigger-box-6out.scad — PRE-Sync, six-output enclosure (32U4 Pro Micro)
+//
+// A variant of ../trigger-box/trigger-box.scad. Same outer box, same face
+// plate. What differs:
+//   * SIX BNC outputs, not eight. The two positions nearest the USB end are
+//     left out so the board has the front wall to itself there.
+//   * NO power jack. The Pro Micro is powered through its own USB-C socket,
+//     which shows through an opening dead centre in the end wall where the
+//     barrel jack was.
+//   * The board sits in a separate CRADLE (print in ASA), siliconed in. The
+//     cradle is superglued onto four pillars that drop from the top of the
+//     frame: one flush cross beam and two wall lugs.
+//   * Plates are held by M3 MACHINE screws into hex nuts. Each corner post
+//     has a side slot at each end; a nut slides in from inside the box and is
+//     glued. Eight nuts: four for the face plate, four for the lid.
+//   * TRIG IN and the mode toggle move to the middle of the rear wall, out of
+//     the board's way.
+//
+// PARTS (no supports anywhere):
+//   frame     walls, nut posts, beams, pillars. Print RIM DOWN (face end on
+//             the plate): beams and lugs are first layer, pillars grow up.
+//   cradle    ASA. Base on the bed, ribs up.
+//   face      unchanged from the eight-output box. Face UP; import face +
+//             face_art into ONE Bambu Studio object (face_art -> filament 1).
+//   lid       flat as-is. Corner notches in the lip are larger than the
+//             eight-output lid's, so that lid does NOT fit this frame.
+//   fit_test  print FIRST: USB opening, nut slot, pillar + cradle socket,
+//             BNC / toggle / LED holes.
+//
+//   openscad -o frame.stl -D 'part="frame"' trigger-box-6out.scad
+//   (likewise cradle, face, face_art, lid, fit_test; "preview" to look)
+// ============================================================================
+
+include <lib/nyk-lib.scad>
+
+part = "frame"; // "frame" | "cradle" | "face" | "face_art" | "lid" | "fit_test" | "preview"
+
+// ---- Cavity -----------------------------------------------------------------
+inner = [168, 45, 31];
+wall  = 3;            // 3mm all walls (keyhole pads on the lid go thicker)
+rad   = 3;
+
+// ---- Panel hardware (VERIFY on fit_test) ------------------------------------
+bnc_d     = 9.7;   // threaded bulkhead BNC, 3/8" barrel
+switch_d  = 6.5;   // SPDT toggle (MTS-102 — 6mm bushing, 6.5 hole fit-tested)
+led_d     = 10.4;  // bare 10mm LED pressed in from the inside; its flange
+                   // sits against the plate interior (VERIFY on fit_test)
+led_ring_d = 14;   // the LED's panel-mount ring (~11.5 measured) + a style margin:
+                   // a circular INSET of this diameter around the hole, same
+                   // depth as the art, so the ring sits in it near flush on
+                   // the soma's orange floor (VERIFY on fit_test)
+led_bezel_d = 0;   // 0 = no raised/flat landing (ring is inset instead)
+
+// ---- Front row (+Y): 6 BNC outputs ------------------------------------------
+// The eight-output box's grid (19mm pitch, eight slots centred on the wall) is
+// kept, and the two slots nearest the USB end (-X) are simply not cut. So the
+// six jacks sit exactly where outputs 3-8 sat, and are numbered 1-6. In the
+// deployed (face-up) box, viewed from the front, output 1 is LEFT-most =
+// smallest model x.
+n_slots    = 8;                 // the grid
+out_skip   = 2;                 // slots left out at the -X (USB) end
+n_out      = n_slots - out_skip;
+out_pitch  = 19;
+front_z    = 17;
+function out_x(i) = (i + out_skip - (n_slots - 1)/2) * out_pitch;   // i = 0..n_out-1
+out_cx     = (out_x(0) + out_x(n_out - 1)) / 2;   // caption centres on the group
+
+// ---- Rear (-Y): TRIG input + mode switch ------------------------------------
+// Centred on the wall. In the eight-output box this group sat at x = -44, in
+// the half that now holds the board: the toggle's body comes ~18mm in from the
+// rear wall at the same height as the board, so it had to move.
+ctrl_cx    = 0;     // group center (CONTROL header rides here too)
+trig_x     = ctrl_cx + 17;   // IN jack (deployed viewed-left of the toggle)
+mode_x     = ctrl_cx - 17;   // toggle; TRIG/RUN label on the BNC side
+rear_z     = 17;
+
+// ---- Left end (-X): USB-C opening, dead centre -------------------------------
+// The opening passes the CABLE'S PLUG BODY, not just the socket: the wall is
+// 3mm thick and the socket sits at the board's edge, so the plug has to go
+// through the wall to reach it.
+usb_z      = 18.5;  // mid-height of the assembled box (same as the ground screw)
+usb_plug_w = 12.5;  // plug body width  (VERIFY against the cable — nominal)
+usb_plug_h = 7.0;   // plug body height (VERIFY — nominal)
+usb_shell_h = 3.2;  // socket shell height above the board (VERIFY — nominal)
+
+// ---- The board ---------------------------------------------------------------
+// 38 x 24 as measured by hand on 2026-10-09. Thickness and the socket's
+// overhang past the board edge are NOT measured.
+brd_l      = 38;    // along X
+brd_w      = 24;    // across Y
+brd_t      = 1.6;   // (VERIFY — nominal)
+usb_over   = 1.0;   // socket overhang past the board edge (VERIFY — "a bit")
+brd_x0     = -inner.x/2 + usb_over;   // board edge at the USB end; the socket
+                                      // mouth lands on the wall's inner face
+// The board lies flat, components toward the FACE plate, socket centred on
+// the opening. Its component side is therefore half a shell below usb_z, and
+// the cradle sits against its other side (toward the lid). Deployed face-up,
+// the board rests ON the cradle.
+brd_z      = usb_z + usb_shell_h/2;   // component-side surface
+seat_z     = brd_z + brd_t;           // cradle surface the board lies on
+
+// ---- Face (floor exterior, z=0): icon + LED + wordmark ----------------------
+// Icon source: logo-icon-filled.svg (logo-icon.svg with all outline holes
+// filled so every shape is a solid inset; filtered from NeuromechanicsLabLogo_noface.ai —
+// background + text stripped, 26 paths). MEASURED imported bbox (pt units
+// import at 0.3528mm/pt): x 15.80..142.23, y 28.62..83.69.
+icon_w      = 95;                 // printed icon width
+icon_cx     = -22;                // icon center on the face
+art_recess  = 1.2;                // recess depth into the face
+art_h       = 0.6;                // colored floor slab thickness (3 layers)
+art_bleed   = 0.4;                // slab overlaps past the recess edge so no
+                                  // body-colored seam shows on the floor
+bb_cx       = 79.02;              // measured import-space center
+bb_cy       = 56.16;
+icon_s      = icon_w / 126.43;    // measured import-space width
+// soma (orange dot) center — MEASURED by importing the isolated soma path
+// through the same pipeline (import-space center 40.43, 55.56 → offset from
+// icon center dx -38.59, dy -0.60). The plate prints face-up so the art is
+// NOT mirrored: the offset applies with its own sign.
+soma_x      = icon_cx - 38.59 * icon_s;
+soma_y      = -0.60 * icon_s;
+art_fat     = 0.25;               // stroke fattening: thinnest dendrites become
+                                  // ~2mm = 4-5 extrusion lines
+wordmark    = "PRE-Sync";
+word_font   = "Futura:style=Bold";   // geometric, heavy — matches the logo's circles
+word_x      = 50;                 // centered in the clear zone right of icon
+word_size   = 7;
+
+// ---- Ground/tether screw (right end wall, dead center) ----------------------
+// IDEAL 774044R-style 10-32 thread-forming grounding screw (green): tether
+// ring terminal under the head OUTSIDE, screw self-taps the wall — line the
+// interior with copper foil over this area and the threads contact it on the
+// way through = the shield's single ground point. No nut needed.
+gnd_d      = 4.3;   // 10-32 thread-forming bite in 3mm PLA (major dia 4.8)
+gnd_y      = 0;
+gnd_zp     = 18.5;  // mid-height of the assembled box (lid on)
+
+// ---- Top bracing: ledge, beams, and the cradle pillars -----------------------
+// ORIENTATION: the face plate is the TOP of the deployed box and the lid is the
+// BOTTOM. In model coordinates the face end is the low-z end, so the ledge and
+// beams are built there. Their outer faces are FLUSH with the rim: the frame
+// prints rim down, so rim, ledge, beams and lugs are all first layer, flat on
+// the plate, and the pillars grow vertically off solid material. Recessed even
+// slightly they would be 45mm unsupported bridges. Flush also means the face
+// plate seats on them, so they must be exactly coplanar with the rim.
+ledge_w     = 2.5;   // how far the top lip reaches inward
+ledge_h     = 3;     // its thickness in Z
+beam_w      = 8;     // beam width along X
+beam_h      = 4;     // beam thickness in Z
+
+// Four pillars carry the cradle, two each side of the board.
+//   row 0 hangs from a full cross beam (wall to wall).
+//   row 1 hangs from two short LUGS off the long walls, with nothing spanning
+//         the middle — the face LED comes through the plate at x = -51, right
+//         between them, and a beam there would sit on it.
+pil_x       = [-66, -50];
+pil_y       = 17;    // +/- : clear of the 24mm board and its ribs
+pil_d       = 6;
+lug_reach   = pil_y - pil_d/2 - 1;   // lug runs from the wall in to here
+// Two plain beams brace the rest of the long walls (they carry nothing).
+brace_x     = [5, 55];
+
+// ---- Cradle (separate part, ASA) ---------------------------------------------
+// A flat base the board lies on, L ribs at the inner corners, side ribs near
+// the wall, and the wall end open for the socket. Two straps reach out to
+// four blind sockets that drop over the pillar ends, which locates it for the
+// glue. Silicone the board in; superglue the sockets to the pillars.
+crd_base_t  = 2.4;
+crd_rib_t   = 1.2;
+crd_rib_h   = 3.0;
+crd_clear   = 0.3;   // board to rib
+crd_leg     = 6;     // rib leg length
+crd_sock    = 1.4;   // socket depth
+crd_sock_cl = 0.15;  // radial clearance, pillar in socket
+crd_strap_w = pil_d + 3;             // strap width along X
+crd_x1      = brd_x0 + brd_l + crd_clear + crd_rib_t;   // inner end of the base
+crd_hw      = brd_w/2 + crd_clear + crd_rib_t;          // base half-width
+crd_strap_hw = pil_y + pil_d/2 + 1.5;                   // strap half-length
+pil_end_z   = seat_z + crd_sock - 0.1;   // 0.1 = glue line
+
+// ---- Corner posts with captive M3 nuts ---------------------------------------
+// Square blocks merged into the corners, on the same centres as the eight-
+// output box's round posts, so the face plate's four holes still line up.
+// Each end of each block has a clearance hole down its axis and a sideways
+// slot a few mm in. The slot opens toward the middle of the box (along X); a
+// hex nut slides in until it is under the hole. Printed rim-down, each slot's
+// roof is a ~6mm bridge.
+post_w      = 10;    // block side
+nut_af      = 5.5;   // M3 hex nut across flats (VERIFY on fit_test — nominal)
+nut_t       = 2.4;   // nut thickness (VERIFY — nominal)
+nut_cl      = 0.3;   // slot clearance, on flats and on thickness
+nut_in      = 3.5;   // plastic between the post end and the slot
+screw_cl_d  = 3.4;   // M3 clearance
+screw_past  = 4;     // hole continues this far past the nut for the screw tip
+// Screw: plate 3 + nut_in 3.5 + nut 2.4 = 8.9  ->  M3 x 10 countersunk, both ends.
+
+// ---- Lid keyhole mounts -----------------------------------------------------
+key_x      = 45;    // two pads at ±key_x, centered in y
+key_pad_d  = 16;
+key_pad_h  = 3;     // added thickness (lid wall 3 -> 6 at the pads)
+key_head_d = 8.6;   // clears an M4 / #8 screw head
+key_slot_w = 4.5;   // shank slot
+key_slide  = 9;     // slot length; slots point toward the box front
+// Counterbore on the OUTSIDE face, so a mounted screw head sits BELOW the
+// lid's outer surface. Without it the head stands proud of an otherwise flat
+// bottom and the box rocks on two screw heads whenever it is set on a bench —
+// the mount is only used on a wall, but the box spends most of its life on a
+// table. Depth is most of the wall; the remaining material still carries the
+// slot, which is what takes the load once the screw slides home.
+key_cbore_d = 15;   // clears the head plus the driver's reach
+key_cbore_h = 2.0;  // of wall = 3, leaving 1 mm under the slot
+
+// ---- Labels (all INSET) -----------------------------------------------------
+label_size   = 4.6;
+label_font   = "Futura:style=Medium";  // walls: medium weight, slightly larger,
+                                       // so counters stay open in the grooves
+label_deboss = 0.8;    // depth into the wall
+label_fat    = 0.2;    // light fattening only (Bold + 0.35 blended letters)
+label_pitch  = 6;      // line pitch for stacked two-line labels
+
+// 2D content debossed INTO the front (+Y) face. The box deploys FACE-UP
+// (flipped 180° from model orientation), so glyphs are rotated 180° in-plane
+// to read upright on the deployed box.
+module front_deboss_2d(x, z) {
+  translate([x, inner.y/2 + wall + 0.01, z])
+    rotate([90, 0, 0])
+      linear_extrude(label_deboss + 0.02)
+        mirror([1, 0, 0]) children();
+}
+module fat_text(s) {
+  offset(r = label_fat)
+    text(s, size = label_size, font = label_font,
+         halign = "center", valign = "center");
+}
+module front_text(s, x, z) { front_deboss_2d(x, z) rotate(180) fat_text(s); }
+module rear_text(s, x, z)  { rotate([0, 0, 180]) front_text(s, -x, z); }
+// stacked two-line variants (line pitch 5) — s1 reads on TOP once the box
+// is deployed (flipped), so s1 sits at the LOWER model z
+module rear_text2(s1, s2, x, z)  { rear_text(s1, x, z - label_pitch/2);  rear_text(s2, x, z + label_pitch/2); }
+module left_text(s, y, z) {
+  translate([-(inner.x/2 - inner.y/2), 0, 0])
+    rotate([0, 0, 90]) front_text(s, y, z);
+}
+// "bus rail": rounded line flowing +x with an arrowhead ON the line at head_at
+module bus_arrow_2d(len, w = 1.6, head_at = 0, head_l = 4.5, head_w = 4.6) {
+  offset(r = 0.5) offset(delta = -0.5) union() {
+    hull() {
+      translate([-len/2, 0]) circle(d = w);
+      translate([ len/2, 0]) circle(d = w);
+    }
+    translate([head_at, 0])
+      polygon([[0, head_w/2], [head_l, 0], [0, -head_w/2]]);
+  }
+}
+
+// face art 2D — the plate prints face-UP, so the art reads as-is from +z.
+module face_art_2d() {
+  difference() {
+    union() {
+      translate([icon_cx, 0])
+        offset(r = art_fat)
+          scale([icon_s, icon_s])
+            translate([-bb_cx, -bb_cy])
+              import("logo-icon-filled.svg");
+      translate([word_x, 0])
+        offset(r = art_fat)
+          text(wordmark, size = word_size, font = word_font,
+               halign = "center", valign = "center");
+      // inset seat for the LED's panel-mount ring, centered on the soma
+      translate([soma_x, soma_y]) circle(d = led_ring_d);
+    }
+    // optional bezel landing: no recess (and no color slab) under a holder
+    if (led_bezel_d > 0) translate([soma_x, soma_y]) circle(d = led_bezel_d);
+  }
+}
+
+// ---- Nut posts ---------------------------------------------------------------
+module hex2d(af) { circle(d = af / cos(30), $fn = 6); }   // flats parallel to X
+
+module nut_posts() {
+  translate([0, 0, wall]) linear_extrude(inner.z) intersection() {
+    for (p = post_xy(inner)) translate(p) square(post_w, center = true);
+    rrect(inner.x + 2*wall, inner.y + 2*wall, rad);
+  }
+}
+// Everything removed from one post at one end. `up` = +1 at the face end
+// (cuts run toward +z from z0), -1 at the lid end.
+module nut_cut(p, z0, up) {
+  sx = p.x > 0 ? 1 : -1;
+  sh = nut_t + nut_cl;
+  translate([p.x, p.y, up > 0 ? z0 - 0.5 : z0 - (nut_in + sh + screw_past)])
+    cylinder(d = screw_cl_d, h = nut_in + sh + screw_past + 0.5);
+  translate([0, 0, up > 0 ? z0 + nut_in : z0 - nut_in - sh])
+    linear_extrude(sh) hull() {
+      translate(p) hex2d(nut_af + nut_cl);
+      translate([p.x - sx*post_w, p.y]) hex2d(nut_af + nut_cl);
+    }
+}
+
+// ---- Frame: walls + corner posts, open at BOTH ends -------------------------
+// Modeled in the original floor-at-z=0 coordinates so every wall feature
+// keeps its z, then dropped by `wall`: the frame spans z = 0 .. inner.z. The
+// face plate screws onto the z=0 end, the lid onto the z=inner.z end.
+module frame_model() {
+  translate([0, 0, -wall]) difference() {
+    union() {
+      translate([0, 0, wall]) linear_extrude(inner.z) difference() {
+        rrect(inner.x + 2*wall, inner.y + 2*wall, rad);
+        rrect(inner.x, inner.y, max(rad - wall, 0.5));
+      }
+      nut_posts();
+
+      // stiffening ledge around the top opening (turns the free edge of the
+      // 168mm walls into a flange)
+      translate([0, 0, wall])
+        linear_extrude(ledge_h) difference() {
+          rrect(inner.x, inner.y, max(rad - wall, 0.5));
+          rrect(inner.x - 2*ledge_w, inner.y - 2*ledge_w, max(rad - wall - ledge_w, 0.5));
+        }
+
+      // full cross beams: pillar row 0, and the two plain braces
+      for (x = concat([pil_x[0]], brace_x))
+        translate([x - beam_w/2, -inner.y/2, wall])
+          cube([beam_w, inner.y, beam_h]);
+      // wall lugs: pillar row 1 (open in the middle for the face LED)
+      for (sy = [-1, 1])
+        translate([pil_x[1] - beam_w/2, sy > 0 ? lug_reach : -inner.y/2, wall])
+          cube([beam_w, inner.y/2 - lug_reach, beam_h]);
+      // the four pillars, with a flared root
+      for (x = pil_x, sy = [-1, 1])
+        translate([x, sy*pil_y, wall + beam_h]) {
+          cylinder(d = pil_d, h = pil_end_z - wall - beam_h);
+          cylinder(d1 = pil_d + 2, d2 = pil_d, h = 2);
+        }
+    }
+    // ---- captive nuts, both ends of every post -----------------------------
+    for (p = post_xy(inner)) {
+      nut_cut(p, wall, 1);
+      nut_cut(p, wall + inner.z, -1);
+    }
+    // ---- front: 6 BNC outputs, numbered under each (deployed z≈6) ----------
+    for (i = [0 : n_out - 1]) {
+      translate([out_x(i), inner.y/2 + wall, front_z])
+        rotate([-90, 0, 0]) translate([0, 0, -wall - 0.01])
+          round_cutout(wall + 0.02, bnc_d);
+      front_text(str(i + 1), out_x(i), 30.5);
+    }
+    front_text("OUTPUTS", out_cx, 6.5);     // caption rides HIGH when deployed
+    // ---- rear: TRIG input + SPDT mode switch --------------------------------
+    translate([trig_x, -inner.y/2 - wall, rear_z])
+      rotate([90, 0, 0]) translate([0, 0, -wall - 0.01])
+        round_cutout(wall + 0.02, bnc_d);
+    translate([mode_x, -inner.y/2 - wall, rear_z])
+      rotate([90, 0, 0]) translate([0, 0, -wall - 0.01])
+        round_cutout(wall + 0.02, switch_d);
+    rear_text("CONTROL", ctrl_cx, 6.5);
+    rear_text("IN", trig_x, 29.5);
+    rear_text2("TRIG", "RUN", mode_x + 11, rear_z);   // BNC side
+    rear_text2("FREE", "RUN", mode_x - 11, rear_z);
+    // bus rail: TRIG RUN -> the IN jack
+    rotate([0, 0, 180]) front_deboss_2d(-3.5 - ctrl_cx, 16)
+      bus_arrow_2d(len = 10, head_at = 1);
+    // ---- left end: USB-C opening (plug body), wall center -------------------
+    // rotate([0,-90,0]) sends the cutout's local x to model z, so the first
+    // size is the opening's HEIGHT and the second its width across Y.
+    translate([-inner.x/2 - wall, 0, usb_z])
+      rotate([0, -90, 0]) translate([0, 0, -wall - 0.01])
+        rect_cutout(wall + 0.02, usb_plug_h, usb_plug_w, 2.5);
+    left_text("USB", 0, 30.5);
+    // ---- right end: 10-32 ground/tether screw hole, wall center -------------
+    translate([inner.x/2 + wall, gnd_y, gnd_zp])
+      rotate([0, 90, 0]) translate([0, 0, -wall - 0.01])
+        round_cutout(wall + 0.02, gnd_d);
+  }
+}
+
+// ---- Cradle ------------------------------------------------------------------
+// Drawn at the board's x/y in the frame, seat face UP (z = crd_base_t), which
+// is how it prints. In the box it is turned over about the X axis: the seat
+// faces the face plate. It is symmetric in Y, so turning it over changes
+// nothing in plan.
+module cradle_2d() {
+  translate([brd_x0, -crd_hw]) square([crd_x1 - brd_x0, 2*crd_hw]);
+  for (x = pil_x)
+    translate([x - crd_strap_w/2, -crd_strap_hw]) square([crd_strap_w, 2*crd_strap_hw]);
+}
+module cradle_model() {
+  xe = brd_x0 + brd_l + crd_clear;   // inner face of the end rib
+  ye = brd_w/2 + crd_clear;          // inner face of a side rib
+  difference() {
+    union() {
+      linear_extrude(crd_base_t) offset(r = 1) offset(delta = -1) cradle_2d();
+      translate([0, 0, crd_base_t]) linear_extrude(crd_rib_h) {
+        for (sy = [-1, 1]) {
+          // end rib legs (inner corners)
+          translate([xe, sy > 0 ? ye + crd_rib_t - crd_leg : -ye - crd_rib_t])
+            square([crd_rib_t, crd_leg]);
+          // side rib legs: one at the inner corner, one near the wall
+          for (x0 = [xe + crd_rib_t - crd_leg, brd_x0])
+            translate([x0, sy > 0 ? ye : -ye - crd_rib_t])
+              square([crd_leg, crd_rib_t]);
+        }
+      }
+    }
+    for (x = pil_x, sy = [-1, 1])
+      translate([x, sy*pil_y, crd_base_t - crd_sock])
+        cylinder(d = pil_d + 2*crd_sock_cl, h = crd_sock + 0.01);
+  }
+}
+// the cradle where it sits in the frame's final coordinates (preview only)
+module cradle_placed() {
+  translate([0, 0, seat_z - wall + crd_base_t]) rotate([180, 0, 0]) cradle_model();
+}
+module board_placed() {
+  translate([brd_x0, -brd_w/2, brd_z - wall]) cube([brd_l, brd_w, brd_t]);
+}
+
+// ---- Face plate: flat, prints face-up (z=0 interior, z=wall = the face) ----
+face_screw_d = 3.4;   // M3 clearance; countersunk head on the face
+module face_plate() {
+  difference() {
+    linear_extrude(wall) rrect(inner.x + 2*wall, inner.y + 2*wall, rad);
+    for (p = post_xy(inner)) {
+      translate([p.x, p.y, -0.5]) cylinder(d = face_screw_d, h = wall + 1);
+      translate([p.x, p.y, wall * 0.3])
+        cylinder(d1 = face_screw_d, d2 = face_screw_d * 2, h = wall * 0.7 + 0.01);
+    }
+    // art recess from the face
+    translate([0, 0, wall - art_recess]) linear_extrude(art_recess + 0.01) face_art_2d();
+    // carve out the colored floor slab's volume (it comes back as face_art)
+    translate([0, 0, wall - art_recess - art_h - 0.01]) linear_extrude(art_h + 0.02)
+      offset(r = art_bleed) face_art_2d();
+    // panel-mount LED holder through the soma
+    translate([soma_x, soma_y, -0.5]) cylinder(d = led_d + 2*fit, h = wall + 1);
+  }
+}
+
+// The colored floor slab: art footprint (+bleed), art_h thick, directly under
+// the recess inside the plate. LED hole re-cut so it never covers the LED.
+module face_art_model() {
+  difference() {
+    translate([0, 0, wall - art_recess - art_h]) linear_extrude(art_h)
+      offset(r = art_bleed) face_art_2d();
+    translate([soma_x, soma_y, -0.5]) cylinder(d = led_d + 2*fit, h = wall + 1);
+  }
+}
+
+// ---- Lid (bottom when deployed) with keyhole mounts -------------------------
+// The keyhole pads go on the INSIDE face, not the outside.
+//
+// Outside, they are two 3 mm bosses standing proud of an otherwise flat
+// bottom, so a box set down on a bench rocks on them. Inside, the outer face
+// stays flat and the pad still does its job: it is there to give the screw
+// head somewhere to sit and to thicken the wall around the keyhole, and it
+// does that from either side. The lip already sets the interior clearance, so
+// the pads sit within it and do not foul the frame.
+// Flat lid with an inner lip, as the library's lid(), but the lip's corner
+// notches are square to clear the nut posts.
+module lid_nut(lip_h = 3) {
+  difference() {
+    union() {
+      linear_extrude(wall) rrect(inner.x + 2*wall, inner.y + 2*wall, rad);
+      translate([0, 0, wall]) linear_extrude(lip_h) difference() {
+        rrect(inner.x - 2*fit, inner.y - 2*fit, max(rad - wall, 0.5));
+        for (p = post_xy(inner)) translate(p) square(post_w + 2*fit, center = true);
+      }
+    }
+    for (p = post_xy(inner)) {
+      translate([p.x, p.y, -0.5]) cylinder(d = screw_cl_d, h = wall + lip_h + 1);
+      translate([p.x, p.y, -0.01]) cylinder(d1 = screw_cl_d * 2, d2 = screw_cl_d, h = wall * 0.7);
+    }
+  }
+}
+
+module lid_part() {
+  difference() {
+    union() {
+      lid_nut();
+      for (s = [-1, 1])
+        translate([s*key_x, 0, wall])
+          cylinder(d = key_pad_d, h = key_pad_h);
+    }
+    // attribution, inset inside
+    translate([0, 4, wall - 0.6]) linear_extrude(0.61)
+      offset(r = label_fat)
+        text("NEUROMECHANICS LAB", size = 4, font = label_font,
+             halign = "center", valign = "center");
+    translate([0, -5, wall - 0.6]) linear_extrude(0.61)
+      offset(r = label_fat)
+        text("PRE-Sync v1 — 2026", size = 3.2, font = label_font,
+             halign = "center", valign = "center");
+    // keyholes: head hole + shank slot pointing toward the box FRONT.
+    // The counterbore is cut from the outside face (z=0) and swept along the
+    // slot, so the head stays recessed through the full travel rather than
+    // only where it drops in.
+    for (s = [-1, 1]) {
+      translate([s*key_x, 0, -0.5])
+        cylinder(d = key_head_d, h = wall + key_pad_h + 1);
+      translate([s*key_x, 0, 0])
+        hull() for (yy = [0, -key_slide])
+          translate([0, yy, -0.5])
+            cylinder(d = key_slot_w, h = wall + key_pad_h + 1);
+      translate([s*key_x, 0, -0.01])
+        hull() for (yy = [0, -key_slide])
+          translate([0, yy, 0])
+            cylinder(d = key_cbore_d, h = key_cbore_h + 0.01);
+    }
+  }
+}
+
+// ---- Fit test: print this before the frame ----------------------------------
+// Left to right: BNC, toggle, USB plug opening, LED + ring seat. Behind them a
+// nut post (slot in the same attitude as the frame's face end) and a pillar.
+// Print the cradle too and try its socket on the pillar.
+// The USB opening is cut through a plate lying flat here, whereas in the frame
+// it is in a standing wall, so expect the real one to come out slightly
+// different in height.
+module fit_test() {
+  pp = [30, 16];   // nut post centre
+  difference() {
+    union() {
+      linear_extrude(wall) translate([0, 7]) rrect(90, 44, 3);
+      translate([pp.x, pp.y, 0]) linear_extrude(wall + 12) square(post_w, center = true);
+      translate([-30, 16, 0]) cylinder(d = pil_d, h = wall + 8);
+    }
+    translate([-34, -4, 0]) round_cutout(wall, bnc_d);
+    translate([-20, -4, 0]) round_cutout(wall, switch_d);
+    translate([ -3, -4, 0]) rect_cutout(wall, usb_plug_w, usb_plug_h, 2.5);
+    translate([ 16, -4, 0]) round_cutout(wall, led_d);
+    translate([ 16, -4, wall - art_recess]) cylinder(d = led_ring_d, h = art_recess + 0.01);  // ring seat
+    translate([0, 16, wall - label_deboss]) linear_extrude(label_deboss + 0.01) fat_text("USB");
+    // nut slot + screw hole, entered from the top of the block; slot opens -X
+    translate([0, 0, wall + 12]) nut_cut([pp.x, pp.y], 0, -1);
+  }
+}
+
+// assembled preview: frame, cradle and board, face plate flipped onto z=0
+module preview() {
+  color("gold", 0.5) frame_model();
+  color("dimgray") cradle_placed();
+  color("#1f2a44") board_placed();
+  rotate([180, 0, 0]) { color("gold") face_plate(); color("orangered") face_art_model(); }
+}
+
+if (part == "frame") frame_model();
+else if (part == "cradle") cradle_model();
+else if (part == "face") face_plate();
+else if (part == "face_art") face_art_model();
+else if (part == "lid") lid_part();
+else if (part == "fit_test") fit_test();
+else if (part == "preview") preview();
+else if (part == "check") { frame_model(); cradle_placed(); board_placed(); }
