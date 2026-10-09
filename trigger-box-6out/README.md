@@ -31,6 +31,22 @@ interference checks below pass, but nothing has been fitted in plastic. Print
   comes through the plate 51 mm left of centre, between those two pillars. A
   full beam there would sit on it.
 
+## The USB end: notch and opening
+
+The socket's metal shell comes through the end wall and ends **flush with the
+outside face**. The opening is the shell plus 0.25 mm clearance a side
+(9.5 × 3.7 mm), no larger; the cable's plug body stays outside.
+
+To get the socket that far out, the inside of the wall has a pocket the width
+of the board, and the board's end sits in it. The pocket's depth is the wall
+(3 mm) less the socket's overhang past the board edge, so the skin left
+beyond it is exactly as thick as the overhang. With the measured 2 mm overhang
+that is a 1 mm pocket and a 2 mm skin.
+
+`usb_over` decides whether the socket ends up flush: too small a figure
+leaves it proud of the wall, too large leaves it shy.
+The cradle stops at the wall; the board overhangs it into the pocket.
+
 ## The cradle
 
 A flat base the board lies on, corner ribs 1.2 mm thick with 0.3 mm clearance,
@@ -68,9 +84,9 @@ lid does not fit this frame.** The face plate is the same part.
 |---|---|---|
 | `brd_l`, `brd_w` | 38 × 19 mm | measured by hand, 2026-10-09 |
 | `brd_t` | 1.6 mm | nominal |
-| `usb_over` (socket past the board edge) | 1.0 mm | a guess |
+| `usb_over` (socket past the board edge) | 2.0 mm | measured by hand, 2026-10-09 |
 | `usb_shell_h` | 3.2 mm | nominal |
-| `usb_plug_w`, `usb_plug_h` (cable plug body) | 12.5 × 7.0 mm | nominal — measure the cable |
+| `usb_shell_w` | 9.0 mm | nominal USB-C receptacle |
 | `nut_af`, `nut_t` | 5.5, 2.4 mm | nominal M3 hex |
 
 `usb_shell_h` and `brd_t` set the height the board sits at, so a wrong value
@@ -84,9 +100,10 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
 1. `trigger6-fit_test` — the USB end of the real frame, cut off just past the
    cradle and just above the pillar ends; print it **rim down** like the
    frame. It has all four pillars at their true spacing, the end wall with the
-   USB opening at its true height, and two corner posts with nut slots. Seat
-   the cradle on the pillars, lay the board in it, plug the cable in through
-   the wall, and try a nut in each slot. (BNC, toggle and LED hole sizes are
+   USB opening and notch at their true height, and two corner posts with nut
+   slots. Seat the cradle on the pillars, lay the board in it with its end in
+   the notch, check the socket comes out flush, plug the cable in, and try a
+   nut in each slot. (BNC, toggle and LED hole sizes are
    unchanged from the eight-output box, where they were fit-tested.)
 2. `trigger6-cradle` — ASA, base down.
 3. `trigger6-frame` — **rim down** (face end on the plate), no supports.

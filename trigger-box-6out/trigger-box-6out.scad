@@ -6,8 +6,8 @@
 //   * SIX BNC outputs, not eight. The two positions nearest the USB end are
 //     left out so the board has the front wall to itself there.
 //   * NO power jack. The Pro Micro is powered through its own USB-C socket,
-//     which shows through an opening dead centre in the end wall where the
-//     barrel jack was.
+//     which comes through the end wall where the barrel jack was and ends
+//     flush with the outside. The board's end sits in a notch in that wall.
 //   * The board sits in a separate CRADLE (print in ASA), siliconed in. The
 //     cradle is superglued onto four pillars that drop from the top of the
 //     frame: one flush cross beam and two wall lugs.
@@ -76,23 +76,30 @@ mode_x     = ctrl_cx - 17;   // toggle; TRIG/RUN label on the BNC side
 rear_z     = 17;
 
 // ---- Left end (-X): USB-C opening, dead centre -------------------------------
-// The opening passes the CABLE'S PLUG BODY, not just the socket: the wall is
-// 3mm thick and the socket sits at the board's edge, so the plug has to go
-// through the wall to reach it.
+// The socket's metal shell comes THROUGH the wall and ends flush with the
+// outside face. The opening is the shell plus the printer fit clearance and
+// nothing more; the cable's plug body stays outside.
 usb_z      = 18.5;  // mid-height of the assembled box (same as the ground screw)
-usb_plug_w = 12.5;  // plug body width  (VERIFY against the cable — nominal)
-usb_plug_h = 7.0;   // plug body height (VERIFY — nominal)
+usb_shell_w = 9.0;  // socket shell width  (VERIFY — nominal USB-C receptacle)
 usb_shell_h = 3.2;  // socket shell height above the board (VERIFY — nominal)
 
 // ---- The board ---------------------------------------------------------------
-// 38 x 19 as measured by hand on 2026-10-09. Thickness and the socket's
-// overhang past the board edge are NOT measured.
+// 38 x 19, socket 2 past the board edge: measured by hand on 2026-10-09.
+// Thickness is NOT measured.
 brd_l      = 38;    // along X
 brd_w      = 19;    // across Y
 brd_t      = 1.6;   // (VERIFY — nominal)
-usb_over   = 1.0;   // socket overhang past the board edge (VERIFY — "a bit")
-brd_x0     = -inner.x/2 + usb_over;   // board edge at the USB end; the socket
-                                      // mouth lands on the wall's inner face
+usb_over   = 2.0;   // socket overhang past the board edge (measured by hand)
+// The end wall is NOTCHED on the inside: a pocket the width of the board, so
+// the board's end goes into the wall. Its depth is whatever puts the socket
+// mouth flush with the outside: the wall less the socket's overhang. What is
+// left of the wall beyond the pocket is a skin exactly as thick as the
+// overhang, and only the shell passes through it. So `usb_over` matters: too
+// small a figure leaves the socket proud of the wall, too large leaves it shy.
+usb_notch  = wall - usb_over;   // pocket depth into the end wall
+notch_cl   = 0.3;   // pocket clearance around the board
+brd_x0     = -inner.x/2 - usb_notch;   // board edge at the USB end, on the
+                                       // pocket floor; shell mouth at the outside face
 // The board lies flat on the LID side of the cradle, components toward the
 // lid, socket centred on the opening. With the frame rim-down on the bench
 // (as printed, lid off) the cradle sits on the pillars and the board sits on
@@ -175,6 +182,8 @@ crd_leg     = 6;     // rib leg length
 crd_sock    = 1.4;   // socket depth
 crd_sock_cl = 0.15;  // radial clearance, pillar in socket
 crd_strap_w = pil_d + 3;             // strap width along X
+crd_x0      = -inner.x/2 + 0.3;      // wall end of the base: just off the wall.
+                                     // The board overhangs it into the notch.
 crd_x1      = brd_x0 + brd_l + crd_clear + crd_rib_t;   // inner end of the base
 crd_hw      = brd_w/2 + crd_clear + crd_rib_t;          // base half-width
 crd_strap_hw = pil_y + pil_d/2 + 1.5;                   // strap half-length
@@ -362,12 +371,16 @@ module frame_model() {
     // bus rail: TRIG RUN -> the IN jack
     rotate([0, 0, 180]) front_deboss_2d(-3.5 - ctrl_cx, 16)
       bus_arrow_2d(len = 10, head_at = 1);
-    // ---- left end: USB-C opening (plug body), wall center -------------------
+    // ---- left end: USB-C opening (socket shell only), wall center -----------
     // rotate([0,-90,0]) sends the cutout's local x to model z, so the first
     // size is the opening's HEIGHT and the second its width across Y.
     translate([-inner.x/2 - wall, 0, usb_z])
       rotate([0, -90, 0]) translate([0, 0, -wall - 0.01])
-        rect_cutout(wall + 0.02, usb_plug_h, usb_plug_w, 2.5);
+        rect_cutout(wall + 0.02, usb_shell_h, usb_shell_w, 1.5);
+    // notch for the board's end, inside face of the same wall: board width,
+    // from just under the board to just over the socket shell
+    translate([-inner.x/2 - usb_notch, -brd_w/2 - notch_cl, seat_z - notch_cl])
+      cube([usb_notch + 0.01, brd_w + 2*notch_cl, brd_t + usb_shell_h + 2*notch_cl]);
     left_text("USB", 0, 30.5);
     // ---- right end: 10-32 ground/tether screw hole, wall center -------------
     translate([inner.x/2 + wall, gnd_y, gnd_zp])
@@ -381,7 +394,7 @@ module frame_model() {
 // sockets opening DOWN (z = 0). That is both how it prints (sockets on the
 // bed, each roof a ~6mm bridge) and how it sits in the frame's coordinates.
 module cradle_2d() {
-  translate([brd_x0, -crd_hw]) square([crd_x1 - brd_x0, 2*crd_hw]);
+  translate([crd_x0, -crd_hw]) square([crd_x1 - crd_x0, 2*crd_hw]);
   for (x = pil_x)
     translate([x - crd_strap_w/2, -crd_strap_hw]) square([crd_strap_w, 2*crd_strap_hw]);
 }
@@ -397,7 +410,7 @@ module cradle_model() {
           translate([xe, sy > 0 ? ye + crd_rib_t - crd_leg : -ye - crd_rib_t])
             square([crd_rib_t, crd_leg]);
           // side rib legs: one at the inner corner, one near the wall
-          for (x0 = [xe + crd_rib_t - crd_leg, brd_x0])
+          for (x0 = [xe + crd_rib_t - crd_leg, crd_x0])
             translate([x0, sy > 0 ? ye : -ye - crd_rib_t])
               square([crd_leg, crd_rib_t]);
         }

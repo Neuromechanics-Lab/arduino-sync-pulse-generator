@@ -14,6 +14,7 @@
 - fix(enclosure): the six-output box's cradle carried its pillar sockets on the same face as the board, which put the board between the cradle and the face plate: hidden behind the cradle from the lid opening, and upside down as the frame sits on the bench. The sockets are now on the opposite face. The cradle sits on the pillars and the board sits on top of it, components toward the lid, visible and reachable with the lid off. The pillars shorten from 16 mm to 7.2 mm as a result (2026-10-09T11:55:00-04:00)
 - fix(enclosure): the six-output box's cradle pocket was drawn 24 mm wide from a hand measurement that was wrong; the board is far narrower. The width is now the standard Pro Micro footprint, 18 mm, marked as nominal until the board is measured with calipers (2026-10-09T12:05:00-04:00)
 - fix(enclosure): the six-output box's cradle pocket width is set to the measured board width, 19 mm, replacing the nominal 18 (2026-10-09T12:10:00-04:00)
+- feat(enclosure): on the six-output box the USB-C socket now comes through the end wall and ends flush with the outside face, in place of sitting behind a 3 mm wall with an opening large enough for the cable's plug body. The inside of the wall has a pocket the width of the board, as deep as the wall less the socket's overhang (2 mm, measured), so the board's end sits in the wall; the opening through the remaining skin is the socket shell plus fit clearance, 9.5 x 3.7 mm. The cradle stops at the wall and the board overhangs it into the pocket (2026-10-09T12:25:00-04:00)
 
 <!-- version-bumps
 [
