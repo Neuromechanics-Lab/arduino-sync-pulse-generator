@@ -19,6 +19,7 @@
 - fix(enclosure): the six-output box's cradle pocket length is 35.5 mm: the board measures 37.5 mm over its USB-C socket, less the socket's 2 mm overhang (2026-10-09T12:45:00-04:00)
 - fix(enclosure): the previous note was wrong: 37.5 mm is the bare board, not a length over the socket. The slack behind the board came from the cradle's base stopping short of the end wall, so the board could slide forward off its back ribs. The pocket is 37.5 mm and the base now sits flush against the wall (2026-10-09T12:55:00-04:00)
 - fix(enclosure): the six-output box's cradle back ribs are set from a fit against the first printed cradle and not from a measured board length: that print left 3 mm of give with the board pushed to the wall, and the board now goes 1 mm further into the wall notch, so the ribs move 4 mm toward the wall from where that print had them (2026-10-09T13:05:00-04:00)
+- fix(enclosure): the six-output box's cradle back ribs are eased 0.3 mm away from the wall so the board drops in (2026-10-09T13:10:00-04:00)
 
 <!-- version-bumps
 [

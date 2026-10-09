@@ -89,9 +89,9 @@ usb_shell_h = 3.2;  // socket shell height above the board (VERIFY — nominal)
 // pocket with the board edge 1 off the wall; with the board pushed hard to
 // the wall there was 3 of give at the back ribs. The board now goes a
 // further 1 into the wall notch, so the back ribs come 4 toward the wall
-// from where that print had them. That is brd_l = 36. Thickness is NOT
-// measured.
-brd_l      = 36;    // along X: sets the back ribs (see above)
+// from where that print had them (brd_l = 36), then eased back 0.3 so the
+// board drops in. Thickness is NOT measured.
+brd_l      = 36.3;  // along X: sets the back ribs (see above)
 brd_w      = 19;    // across Y
 brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 2.0;   // socket overhang past the board edge (measured by hand)
