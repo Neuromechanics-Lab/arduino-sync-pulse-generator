@@ -6,9 +6,12 @@ Micro's own USB-C socket showing through the end wall. Everything not
 described here (labels, face art, copper foil, keyholes, the electrical notes)
 is as in the eight-output README.
 
-**Status, 2026-10-09: drawn, not printed.** Every part renders manifold and the
-interference checks below pass, but nothing has been fitted in plastic. Print
-`fit_test` first.
+**Status, 2026-10-09: the fit test has been printed and works; the full frame,
+lid and face plate have not been printed.** The fit test is a slice of the
+frame's own geometry (checked: the two are identical inside the cut), so the
+USB end of the frame is what was tested. The rest of the frame — the six BNC
+holes, the rear controls, the lid-end nut slots, the lid's lip against the
+larger posts — is unchanged or untested.
 
 ## What changed, and why
 
