@@ -85,8 +85,13 @@ usb_shell_h = 3.2;  // socket shell height above the board (VERIFY — nominal)
 
 // ---- The board ---------------------------------------------------------------
 // 19 wide, socket 2 past the board edge: measured by hand on 2026-10-09.
-// Length 37.5 (bare board), measured 2026-10-09. Thickness is NOT measured.
-brd_l      = 37.5;  // along X, bare board
+// Length is set from a fit, not a ruler. The first printed cradle had a 38
+// pocket with the board edge 1 off the wall; with the board pushed hard to
+// the wall there was 3 of give at the back ribs. The board now goes a
+// further 1 into the wall notch, so the back ribs come 4 toward the wall
+// from where that print had them. That is brd_l = 36. Thickness is NOT
+// measured.
+brd_l      = 36;    // along X: sets the back ribs (see above)
 brd_w      = 19;    // across Y
 brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 2.0;   // socket overhang past the board edge (measured by hand)

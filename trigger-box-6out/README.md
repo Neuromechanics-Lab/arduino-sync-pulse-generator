@@ -84,7 +84,7 @@ lid does not fit this frame.** The face plate is the same part.
 | parameter | value | source |
 |---|---|---|
 | `brd_w` | 19 mm | measured by hand, 2026-10-09 |
-| `brd_l` (bare board) | 37.5 mm | measured, 2026-10-09 |
+| `brd_l` (sets the back ribs) | 36 mm | from a fit: the first print's back ribs moved 4 mm toward the wall (3 mm of give found, plus the 1 mm notch) |
 | `brd_t` | 1.6 mm | nominal |
 | `usb_over` (socket past the board edge) | 2.0 mm | measured by hand, 2026-10-09 |
 | `usb_shell_h` | 3.2 mm | nominal |
