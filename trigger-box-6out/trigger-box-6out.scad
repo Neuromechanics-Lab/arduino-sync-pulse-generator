@@ -25,8 +25,8 @@
 //             face_art into ONE Bambu Studio object (face_art -> filament 1).
 //   lid       flat as-is. Corner notches in the lip are larger than the
 //             eight-output lid's, so that lid does NOT fit this frame.
-//   fit_test  print FIRST: USB opening, nut slot, pillar + cradle socket,
-//             BNC / toggle / LED holes.
+//   fit_test  print FIRST, rim down: the USB end of the frame cut short —
+//             all four pillars, the USB opening, two nut posts.
 //
 //   openscad -o frame.stl -D 'part="frame"' trigger-box-6out.scad
 //   (likewise cradle, face, face_art, lid, fit_test; "preview" to look)
@@ -481,15 +481,6 @@ module lid_part() {
         translate([s*key_x, 0, wall])
           cylinder(d = key_pad_d, h = key_pad_h);
     }
-    // attribution, inset inside
-    translate([0, 4, wall - 0.6]) linear_extrude(0.61)
-      offset(r = label_fat)
-        text("NEUROMECHANICS LAB", size = 4, font = label_font,
-             halign = "center", valign = "center");
-    translate([0, -5, wall - 0.6]) linear_extrude(0.61)
-      offset(r = label_fat)
-        text("PRE-Sync v1 — 2026", size = 3.2, font = label_font,
-             halign = "center", valign = "center");
     // keyholes: head hole + shank slot pointing toward the box FRONT.
     // The counterbore is cut from the outside face (z=0) and swept along the
     // slot, so the head stays recessed through the full travel rather than
@@ -510,28 +501,20 @@ module lid_part() {
 }
 
 // ---- Fit test: print this before the frame ----------------------------------
-// Left to right: BNC, toggle, USB plug opening, LED + ring seat. Behind them a
-// nut post (slot in the same attitude as the frame's face end) and a pillar.
-// Print the cradle too and try its socket on the pillar.
-// The USB opening is cut through a plate lying flat here, whereas in the frame
-// it is in a standing wall, so expect the real one to come out slightly
-// different in height.
+// The USB end of the real frame, cut off 3mm past the cradle and 3mm above the
+// pillar ends. It is the frame's own geometry in the frame's own print
+// attitude (rim down), so what fits here fits there: the four pillars at
+// their true spacing and length, the end wall with the USB opening at its
+// true height, and two corner posts with their face-end nut slots.
+// Try: the cradle on all four pillars, the board in the cradle with the
+// cable plugged in through the wall, and a nut in each slot.
+// The BNC, toggle and LED holes are not on it: their diameters are unchanged
+// from the eight-output box, where they were fit-tested.
 module fit_test() {
-  pp = [30, 16];   // nut post centre
-  difference() {
-    union() {
-      linear_extrude(wall) translate([0, 7]) rrect(90, 44, 3);
-      translate([pp.x, pp.y, 0]) linear_extrude(wall + 12) square(post_w, center = true);
-      translate([-30, 16, 0]) cylinder(d = pil_d, h = wall + 8);
-    }
-    translate([-34, -4, 0]) round_cutout(wall, bnc_d);
-    translate([-20, -4, 0]) round_cutout(wall, switch_d);
-    translate([ -3, -4, 0]) rect_cutout(wall, usb_plug_w, usb_plug_h, 2.5);
-    translate([ 16, -4, 0]) round_cutout(wall, led_d);
-    translate([ 16, -4, wall - art_recess]) cylinder(d = led_ring_d, h = art_recess + 0.01);  // ring seat
-    translate([0, 16, wall - label_deboss]) linear_extrude(label_deboss + 0.01) fat_text("USB");
-    // nut slot + screw hole, entered from the top of the block; slot opens -X
-    translate([0, 0, wall + 12]) nut_cut([pp.x, pp.y], 0, -1);
+  intersection() {
+    frame_model();
+    translate([-inner.x/2 - wall - 1, -inner.y, -1])
+      cube([wall + 1 + (crd_x1 + inner.x/2) + 3, 2*inner.y, pil_end_z - wall + 3 + 1]);
   }
 }
 

@@ -52,7 +52,8 @@ superglue at the slot mouth. Eight nuts.
 
 Screws: **M3 × 10 countersunk**, eight (3 mm plate + 3.5 mm + 2.4 mm nut).
 
-The lid's lip has larger corner notches for these posts. **The eight-output
+The lid's lip has larger corner notches for these posts, and the inside
+attribution text is gone (it did not show on the print). **The eight-output
 lid does not fit this frame.** The face plate is the same part.
 
 ## Not measured — check on `fit_test`
@@ -74,9 +75,13 @@ the `.scad`.
 
 STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl`.
 
-1. `trigger6-fit_test` — USB opening, nut slot, a pillar, BNC / toggle / LED
-   holes. Try a nut in the slot, the cable in the opening, and the cradle's
-   socket on the pillar.
+1. `trigger6-fit_test` — the USB end of the real frame, cut off just past the
+   cradle and just above the pillar ends; print it **rim down** like the
+   frame. It has all four pillars at their true spacing, the end wall with the
+   USB opening at its true height, and two corner posts with nut slots. Seat
+   the cradle on the pillars, lay the board in it, plug the cable in through
+   the wall, and try a nut in each slot. (BNC, toggle and LED hole sizes are
+   unchanged from the eight-output box, where they were fit-tested.)
 2. `trigger6-cradle` — ASA, base down.
 3. `trigger6-frame` — **rim down** (face end on the plate), no supports.
 4. `trigger6-face` + `trigger6-face_art` — as the eight-output box.
@@ -102,7 +107,6 @@ Not checked: anything that depends on a number in the table above.
 
 ## Open
 
-- The lid's inside attribution still reads `PRE-Sync v1 — 2026`.
 - The wiring diagram, BOM and firmware pin list in `../docs` describe the
   eight-output box; outputs 7 and 8 are simply not wired here. The optional
   event channel is documented on output 8, which this box does not have.
