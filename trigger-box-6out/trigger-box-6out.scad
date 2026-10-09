@@ -84,9 +84,10 @@ usb_shell_w = 9.0;  // socket shell width  (VERIFY — nominal USB-C receptacle)
 usb_shell_h = 3.2;  // socket shell height above the board (VERIFY — nominal)
 
 // ---- The board ---------------------------------------------------------------
-// 38 x 19, socket 2 past the board edge: measured by hand on 2026-10-09.
-// Thickness is NOT measured.
-brd_l      = 38;    // along X
+// 19 wide, socket 2 past the board edge: measured by hand on 2026-10-09.
+// Length: 38 was measured over the socket, so the bare board is 36 (a 38
+// pocket left ~3 of slack behind the board). Thickness is NOT measured.
+brd_l      = 36;    // along X, bare board (VERIFY — inferred, see above)
 brd_w      = 19;    // across Y
 brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 2.0;   // socket overhang past the board edge (measured by hand)
