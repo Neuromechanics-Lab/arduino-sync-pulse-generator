@@ -27,9 +27,9 @@ interference checks below pass, but nothing has been fitted in plastic. Print
 - **Why the rear controls moved.** They sat in the half of the box that now
   holds the board. The toggle's body comes in from the rear wall at the same
   height as the board and would have met it.
-- **Why the fourth pillar pair hangs from wall lugs, not a beam.** The face LED
-  comes through the plate 51 mm left of centre, between those two pillars. A
-  full beam there would sit on it.
+- **Why only one pillar pair has a cross beam.** The face LED comes through the
+  plate 51 mm left of centre, between the other two pillars. A beam there
+  would sit on it.
 
 ## The USB end: notch and opening
 
@@ -56,11 +56,15 @@ A flat base the board lies on, corner ribs 1.2 mm thick with 0.3 mm clearance,
 and the wall end open so the socket reaches the opening. Two straps reach out
 to four pillars and sit flat on their ends.
 
-**It is screwed on, not glued.** An M3 × 12 pan head goes in from the lid side,
-through the strap, down the pillar and through the beam, into a hex nut
-sitting in a pocket on the beam's outer (rim) face. The nut drops in from the
-face side; tightening pulls it into the pocket floor, and the face plate then
-covers it. So the cradle comes out again with four screws.
+**It is screwed on, not glued.** Each pillar is a 10 mm block built against the
+long wall, with a hole down its axis from the cradle end and a side slot just
+under that end: the same captive-nut scheme as the corner posts. The slots
+open toward the middle of the box. Slide an M3 hex nut in, a drop of glue,
+then an M3 × 8 pan head from the lid side through the cradle's strap. So the
+cradle comes out again with four screws.
+
+The hole is blind and stops 2.6 mm short of the rim face, so neither the nut
+nor the screw comes near the face plate.
 
 Print it in **ASA**, flat side on the bed, ribs up. Silicone the board into it.
 
@@ -78,11 +82,12 @@ LED. That is the room the LED's back and its bent leads have.
 Each corner post is a 10 mm block with, at each end, a clearance hole down its
 axis and a slot in its side 3.5 mm in. The slot opens toward the middle of the
 box. Slide an M3 hex nut in until it is under the hole, then a drop of
-superglue at the slot mouth. Eight nuts for the plates, plus the four in the
-beam pockets for the cradle: **twelve M3 hex nuts**.
+superglue at the slot mouth. Eight nuts for the plates, plus four in the
+pillars for the cradle: **twelve M3 hex nuts**.
 
 Screws: **M3 × 10 countersunk**, eight, for the plates (3 mm plate + 3.5 mm +
-2.4 mm nut); **M3 × 12 pan head**, four, for the cradle.
+2.4 mm nut); **M3 × 8 pan head**, four, for the cradle (2.4 mm strap + 1.6 mm
++ 2.4 mm nut). Nothing longer than 8 mm in the cradle: the hole is 7.3 mm deep.
 
 The lid's lip has larger corner notches for these posts, and the inside
 attribution text is gone (it did not show on the print). **The eight-output
@@ -111,10 +116,10 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
 1. `trigger6-fit_test` — the USB end of the real frame, cut off just past the
    cradle and 4 mm above the top of the USB opening; print it **rim down** like the
    frame. It has all four pillars at their true spacing, the end wall with the
-   USB opening and slot at their true height, two corner posts with nut slots,
-   and the four nut pockets. Screw the cradle to the pillars, put the board in
-   nose first, check the socket comes out flush, plug the cable in, and try a
-   nut in each slot and pocket. (BNC, toggle and LED hole sizes are
+   USB opening and slot at their true height, and two corner posts with nut
+   slots. Try a nut in every slot, screw the cradle to the pillars, put the
+   board in nose first, check the socket comes out flush, and plug the cable
+   in. (BNC, toggle and LED hole sizes are
    unchanged from the eight-output box, where they were fit-tested.)
 2. `trigger6-cradle` — ASA, base down.
 3. `trigger6-frame` — **rim down** (face end on the plate), no supports.
@@ -125,10 +130,10 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
 
 1. The eight post nuts in and glued. The four at the face end are reached from
    the lid side and are hard to get at once the cradle is in.
-2. Four nuts into the beam pockets from the face side (a drop of glue keeps
-   them from falling out before the face plate is on).
+2. Four nuts into the pillar slots, from the middle of the box outward, and
+   glued.
 3. Cradle onto the pillars from the lid side, flush against the end wall;
-   four M3 × 12. **Without the board**: the board cannot come down with it,
+   four M3 × 8. **Without the board**: the board cannot come down with it,
    since its nose has to enter the wall sideways.
 4. Silicone on the cradle. Board in nose first, tilted a few degrees: socket
    through the opening, board edge into the slot, then lower the tail between
@@ -141,7 +146,8 @@ Intersection volumes, all zero: cradle–frame, board–frame, board–cradle, e
 post nuts–frame, cradle screws and their nuts against frame, cradle, board and
 bought parts, lid–frame, face plate–frame, and nominal envelopes for the toggle,
 the seven BNC bodies and the LED against the frame, the cradle and the board.
-The pillars are 5.9 mm long and the cradle's straps bear flat on their ends.
+The pillars stand 5.9 mm above the beam plane and the cradle's straps bear flat
+on their ends.
 The LED envelope used is Ø14 × 9 mm behind the face plate.
 
 Not checked: anything that depends on a number in the table above.
