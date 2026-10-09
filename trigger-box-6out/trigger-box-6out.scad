@@ -85,10 +85,12 @@ usb_plug_h = 7.0;   // plug body height (VERIFY — nominal)
 usb_shell_h = 3.2;  // socket shell height above the board (VERIFY — nominal)
 
 // ---- The board ---------------------------------------------------------------
-// 38 x 24 as measured by hand on 2026-10-09. Thickness and the socket's
-// overhang past the board edge are NOT measured.
+// Length 38 as measured by hand on 2026-10-09. Width is the standard Pro
+// Micro footprint (0.7 in = 17.8), NOT measured: a first figure of 24 made
+// the pocket far too wide. Thickness and the socket's overhang past the
+// board edge are NOT measured either.
 brd_l      = 38;    // along X
-brd_w      = 24;    // across Y
+brd_w      = 18;    // across Y (VERIFY — nominal)
 brd_t      = 1.6;   // (VERIFY — nominal)
 usb_over   = 1.0;   // socket overhang past the board edge (VERIFY — "a bit")
 brd_x0     = -inner.x/2 + usb_over;   // board edge at the USB end; the socket
@@ -155,7 +157,7 @@ beam_h      = 4;     // beam thickness in Z
 //         the middle — the face LED comes through the plate at x = -51, right
 //         between them, and a beam there would sit on it.
 pil_x       = [-66, -50];
-pil_y       = 17;    // +/- : clear of the 24mm board and its ribs
+pil_y       = 17;    // +/- : well clear of the board and its ribs
 pil_d       = 6;
 lug_reach   = pil_y - pil_d/2 - 1;   // lug runs from the wall in to here
 // Two plain beams brace the rest of the long walls (they carry nothing).
