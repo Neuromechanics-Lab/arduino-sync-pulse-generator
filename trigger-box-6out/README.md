@@ -21,15 +21,16 @@ before the frame.
 | Power | barrel jack, left end | **none** — USB-C opening in its place, dead centre in the end wall |
 | Board | perfboard hung from two beams | Pro Micro in a **separate cradle**, screwed onto four pillars |
 | Plate screws | M3 self-tappers into the posts | **M3 machine screws into captive hex nuts**, both plates |
-| TRIG IN + toggle | left half of the rear wall | **centre of the rear wall** |
+| TRIG IN + toggle | left half of the rear wall | **none** — free run only, rear wall blank |
 | Ground screw | right end | unchanged |
 
 - **Which two outputs went.** The eight-slot grid is kept and the two slots
   nearest the USB end are not cut, so the board has about 45 mm of front wall
   with no BNC body behind it.
-- **Why the rear controls moved.** They sat in the half of the box that now
-  holds the board. The toggle's body comes in from the rear wall at the same
-  height as the board and would have met it.
+- **Free run only.** No trigger input and no mode switch. The firmware needs
+  no change: `MODE_FREE_IS_LOW` is 0 in `config.h`, so the mode pin left
+  unwired reads free run and the box emits from power-up. Leave pins 2 and 3
+  unconnected.
 - **Why only one pillar pair has a cross beam.** The face LED comes through the
   plate 51 mm left of centre, between the other two pillars. A beam there
   would sit on it.
@@ -125,7 +126,7 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
    USB opening and slot at their true height, and two corner posts with nut
    slots. Try a nut in every slot, screw the cradle to the pillars, put the
    board in nose first, check the socket comes out flush, and plug the cable
-   in. (BNC, toggle and LED hole sizes are
+   in. (BNC and LED hole sizes are
    unchanged from the eight-output box, where they were fit-tested.)
 2. `trigger6-cradle` — ASA, base down.
 3. `trigger6-frame` — **rim down** (face end on the plate), no supports.
@@ -151,8 +152,8 @@ STLs only; slice by hand. `./export-parts.sh` writes `exports/stl/trigger6-*.stl
 
 Intersection volumes, all zero: cradle–frame, board–frame, board–cradle, eight
 post nuts–frame, cradle screws and their nuts against frame, cradle, board and
-bought parts, lid–frame, face plate–frame, and nominal envelopes for the toggle,
-the seven BNC bodies and the LED against the frame, the cradle and the board.
+bought parts, lid–frame, face plate–frame, and nominal envelopes for
+the six BNC bodies and the LED against the frame, the cradle and the board.
 The pillars are 18.7 mm tall from the rim and the cradle's straps bear flat on
 their ends.
 The LED envelope used is Ø14 × 9 mm behind the face plate.

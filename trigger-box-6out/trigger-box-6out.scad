@@ -14,8 +14,8 @@
 //   * Plates are held by M3 MACHINE screws into hex nuts. Each corner post
 //     has a side slot at each end; a nut slides in from inside the box and is
 //     glued. Twelve nuts in all: four face plate, four lid, four cradle.
-//   * TRIG IN and the mode toggle move to the middle of the rear wall, out of
-//     the board's way.
+//   * FREE RUN ONLY. There is no TRIG IN jack and no mode toggle; the rear
+//     wall is blank. (The firmware reads an unwired mode pin as free run.)
 //
 // PARTS (no supports anywhere):
 //   frame     walls, nut posts, beams, pillars. Print RIM DOWN (face end on
@@ -43,7 +43,6 @@ rad   = 3;
 
 // ---- Panel hardware (VERIFY on fit_test) ------------------------------------
 bnc_d     = 9.7;   // threaded bulkhead BNC, 3/8" barrel
-switch_d  = 6.5;   // SPDT toggle (MTS-102 — 6mm bushing, 6.5 hole fit-tested)
 led_d     = 10.4;  // bare 10mm LED pressed in from the inside; its flange
                    // sits against the plate interior (VERIFY on fit_test)
 led_ring_d = 14;   // the LED's panel-mount ring (~11.5 measured) + a style margin:
@@ -66,14 +65,7 @@ front_z    = 17;
 function out_x(i) = (i + out_skip - (n_slots - 1)/2) * out_pitch;   // i = 0..n_out-1
 out_cx     = (out_x(0) + out_x(n_out - 1)) / 2;   // caption centres on the group
 
-// ---- Rear (-Y): TRIG input + mode switch ------------------------------------
-// Centred on the wall. In the eight-output box this group sat at x = -44, in
-// the half that now holds the board: the toggle's body comes ~18mm in from the
-// rear wall at the same height as the board, so it had to move.
-ctrl_cx    = 0;     // group center (CONTROL header rides here too)
-trig_x     = ctrl_cx + 17;   // IN jack (deployed viewed-left of the toggle)
-mode_x     = ctrl_cx - 17;   // toggle; TRIG/RUN label on the BNC side
-rear_z     = 17;
+// ---- Rear (-Y): blank. This box free-runs; no TRIG input, no mode switch. ----
 
 // ---- Left end (-X): USB-C opening, dead centre -------------------------------
 // The socket's metal shell comes THROUGH the wall and ends flush with the
@@ -251,7 +243,6 @@ label_font   = "Futura:style=Medium";  // walls: medium weight, slightly larger,
                                        // so counters stay open in the grooves
 label_deboss = 0.8;    // depth into the wall
 label_fat    = 0.2;    // light fattening only (Bold + 0.35 blended letters)
-label_pitch  = 6;      // line pitch for stacked two-line labels
 
 // 2D content debossed INTO the front (+Y) face. The box deploys FACE-UP
 // (flipped 180° from model orientation), so glyphs are rotated 180° in-plane
@@ -268,26 +259,10 @@ module fat_text(s) {
          halign = "center", valign = "center");
 }
 module front_text(s, x, z) { front_deboss_2d(x, z) rotate(180) fat_text(s); }
-module rear_text(s, x, z)  { rotate([0, 0, 180]) front_text(s, -x, z); }
-// stacked two-line variants (line pitch 5) — s1 reads on TOP once the box
-// is deployed (flipped), so s1 sits at the LOWER model z
-module rear_text2(s1, s2, x, z)  { rear_text(s1, x, z - label_pitch/2);  rear_text(s2, x, z + label_pitch/2); }
 module left_text(s, y, z) {
   translate([-(inner.x/2 - inner.y/2), 0, 0])
     rotate([0, 0, 90]) front_text(s, y, z);
 }
-// "bus rail": rounded line flowing +x with an arrowhead ON the line at head_at
-module bus_arrow_2d(len, w = 1.6, head_at = 0, head_l = 4.5, head_w = 4.6) {
-  offset(r = 0.5) offset(delta = -0.5) union() {
-    hull() {
-      translate([-len/2, 0]) circle(d = w);
-      translate([ len/2, 0]) circle(d = w);
-    }
-    translate([head_at, 0])
-      polygon([[0, head_w/2], [head_l, 0], [0, -head_w/2]]);
-  }
-}
-
 // face art 2D — the plate prints face-UP, so the art reads as-is from +z.
 module face_art_2d() {
   difference() {
@@ -388,20 +363,6 @@ module frame_model() {
       front_text(str(i + 1), out_x(i), 30.5);
     }
     front_text("OUTPUTS", out_cx, 6.5);     // caption rides HIGH when deployed
-    // ---- rear: TRIG input + SPDT mode switch --------------------------------
-    translate([trig_x, -inner.y/2 - wall, rear_z])
-      rotate([90, 0, 0]) translate([0, 0, -wall - 0.01])
-        round_cutout(wall + 0.02, bnc_d);
-    translate([mode_x, -inner.y/2 - wall, rear_z])
-      rotate([90, 0, 0]) translate([0, 0, -wall - 0.01])
-        round_cutout(wall + 0.02, switch_d);
-    rear_text("CONTROL", ctrl_cx, 6.5);
-    rear_text("IN", trig_x, 29.5);
-    rear_text2("TRIG", "RUN", mode_x + 11, rear_z);   // BNC side
-    rear_text2("FREE", "RUN", mode_x - 11, rear_z);
-    // bus rail: TRIG RUN -> the IN jack
-    rotate([0, 0, 180]) front_deboss_2d(-3.5 - ctrl_cx, 16)
-      bus_arrow_2d(len = 10, head_at = 1);
     // ---- left end: USB-C opening (socket shell only), wall center -----------
     // rotate([0,-90,0]) sends the cutout's local x to model z, so the first
     // size is the opening's HEIGHT and the second its width across Y.
@@ -554,7 +515,7 @@ module lid_part() {
 // true height, and two corner posts with their face-end nut slots.
 // Try: a nut in every slot, the cradle screwed to all four pillars, and the
 // board in nose first with the cable plugged in.
-// The BNC, toggle and LED holes are not on it: their diameters are unchanged
+// The BNC and LED holes are not on it: their diameters are unchanged
 // from the eight-output box, where they were fit-tested.
 // Cut height: 4mm of wall above the top of the slot, so the USB opening, the
 // slot and the pillars are whole and have a real roof over them. (Cutting relative to
