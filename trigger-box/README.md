@@ -121,7 +121,8 @@ it clear of the Pro Micro's underside. BNC shells touching the foil is fine
   center; all BNC shells to GND. Pins 2/3 are reserved by the firmware for
   TRIG IN / mode switch.
 - SPDT toggle: MTS-102 style (6 mm bushing, 6.5 mm hole, fit-tested).
-- TRIG IN → 1 kΩ series → pin 2; switch common → pin 3, FREE throw → GND.
+- TRIG IN → 1 kΩ series → pin 2; switch common → pin 3, TRIG RUN throw → GND
+  (the FREE RUN throw is left open).
   See the sync_pulse_generator README for the arming logic.
 
 ## Accessory pucks (`pods.scad`)

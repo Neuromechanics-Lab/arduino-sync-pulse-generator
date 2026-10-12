@@ -268,7 +268,8 @@
 // SPDT toggle picks FREE RUN (output starts at boot) or TRIG RUN (outputs
 // stay LOW until a rising edge arrives on the TRIG IN BNC — lets several
 // boxes start in sync from one master pulse). Wire the switch common to
-// MODE_SWITCH_PIN and the FREE-RUN throw to GND (internal pullup). TRIG IN:
+// MODE_SWITCH_PIN and the TRIG-RUN throw to GND; the FREE-RUN throw is left
+// open (internal pullup; see MODE_FREE_IS_LOW below). TRIG IN:
 // BNC center -> ~1k series resistor -> TRIG_IN_PIN (internal pullup; an
 // idle master holding 0V arms it — the input must sit LOW for
 // TRIG_ARM_LOW_MS before a rising edge counts, so an unconnected jack can

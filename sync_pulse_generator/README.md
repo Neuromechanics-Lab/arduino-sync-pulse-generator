@@ -79,7 +79,9 @@ it mid-session acts immediately):
   box still stamps its own run ID. Once running, further TRIG edges are
   ignored — re-arm by flipping the switch or power-cycling.
 
-Wiring (see `config.h`): switch common → pin 3, FREE-throw → GND;
+Wiring (see `config.h`): switch common → pin 3; the FREE RUN throw leaves
+the pin open and the TRIG RUN throw closes it to GND, so a box with nothing
+wired to pin 3 free-runs.
 TRIG BNC center → ~1 kΩ series resistor → pin 2. The TRIG input must sit
 LOW ≥ 20 ms before an edge counts, so an unconnected jack can never
 false-trigger (an idle master holding 0 V arms it). Pins 2 and 3 are
