@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "presync"
+version = "1.0.0"
+description = "Recover trustworthy timing from recordings of the PRE-Sync signal"
+license = {text = "MIT"}
+authors = [{name = "Nathan A. Baune"}]
+requires-python = ">=3.9"
+dependencies = ["numpy", "scipy", "pandas"]
+
+[project.optional-dependencies]
+pdf = ["matplotlib"]
+xdf = ["pyxdf"]
+all = ["matplotlib", "pyxdf"]
+
+[project.scripts]
+presync = "presync.__main__:main"
+
+[tool.setuptools]
+# The analysis modules import each other by bare name (`import truth`), so
+# they install as top-level modules beside the `presync` package rather than
+# inside it. Tests and the figure script are left out.
+py-modules = ["align", "analyze", "diagnose", "edge_sync", "events",
+              "sync_align", "timecode", "truth"]
+packages = ["presync"]

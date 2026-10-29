@@ -24,3 +24,6 @@ testdata/
 
 # OpenSCAD generated exports (regenerate with trigger-box-6out/export-parts.sh)
 trigger-box-6out/exports/
+
+# Python packaging
+*.egg-info/
